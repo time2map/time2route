@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://route.time2map.com/sitemap.xml
