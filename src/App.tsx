@@ -1,0 +1,210 @@
+import { useCallback, useState } from 'react';
+import './AppLayout.css';
+import { MapPane } from './components/MapPane';
+import { Sidebar } from './components/Sidebar';
+import type { ActivityMode, ElevationStats, InterestingPlace } from './utils/types';
+
+type RouteInfo = {
+  status: 'idle' | 'loading' | 'ready' | 'error';
+  distance: string;
+  duration: string;
+  elevation: ElevationStats | null;
+  interestingPlaces: InterestingPlace[];
+  errorMessage?: string;
+};
+
+type RouteEndpointPoint = {
+  lat: number;
+  lng: number;
+  address: string;
+};
+
+type RouteIntermediate = google.maps.LatLngLiteral & {
+  id: string;
+};
+
+const EMPTY_INTERMEDIATES: RouteIntermediate[] = [];
+
+function App() {
+  const [routeBuilt, setRouteBuilt] = useState(false);
+  const [mode, setMode] = useState<ActivityMode>('walk');
+  const [buildNonce, setBuildNonce] = useState(0);
+  const [builtRouteParams, setBuiltRouteParams] = useState<{
+    origin: string;
+    destination: string;
+    mode: ActivityMode;
+    intermediates: RouteIntermediate[];
+    refreshPlaces: boolean;
+  } | null>(null);
+  const [activeTab, setActiveTab] = useState<'overview' | 'places'>('overview');
+  const [selectedPlace, setSelectedPlace] = useState<string | null>(null);
+  const [from, setFrom] = useState('Amsterdam Centraal');
+  const [to, setTo] = useState('Vondelpark, Amsterdam');
+  const [startPoint, setStartPoint] = useState<RouteEndpointPoint | null>(null);
+  const [destinationPoint, setDestinationPoint] = useState<RouteEndpointPoint | null>(null);
+  const [mapPickMode, setMapPickMode] = useState(false);
+  const [routeInfo, setRouteInfo] = useState<RouteInfo>({
+    status: 'idle',
+    distance: '—',
+    duration: '—',
+    elevation: null,
+    interestingPlaces: []
+  });
+
+  const handleBuildRoute = useCallback(() => {
+    setBuiltRouteParams({
+      origin: from,
+      destination: to,
+      mode,
+      intermediates: [],
+      refreshPlaces: true
+    });
+    setBuildNonce((previous) => previous + 1);
+    setRouteBuilt(true);
+    setActiveTab('overview');
+    setRouteInfo({
+      status: 'loading',
+      distance: '—',
+      duration: '—',
+      elevation: null,
+      interestingPlaces: []
+    });
+  }, [from, to, mode]);
+
+  const handleReset = useCallback(() => {
+    setRouteBuilt(false);
+    setBuiltRouteParams(null);
+    setSelectedPlace(null);
+    setActiveTab('overview');
+    setRouteInfo({
+      status: 'idle',
+      distance: '—',
+      duration: '—',
+      elevation: null,
+      interestingPlaces: []
+    });
+  }, []);
+
+  const handleSelectPlace = useCallback((placeId: string) => {
+    setSelectedPlace(placeId);
+    setActiveTab('places');
+  }, []);
+
+  const handleAddPlaceToRoute = useCallback((place: InterestingPlace) => {
+    const baseRouteParams = builtRouteParams ?? {
+      origin: from,
+      destination: to,
+      mode,
+      intermediates: EMPTY_INTERMEDIATES,
+      refreshPlaces: true
+    };
+    const alreadyAdded = baseRouteParams.intermediates.some((point) => point.id === place.id);
+    const intermediates = alreadyAdded
+      ? baseRouteParams.intermediates
+      : [
+          ...baseRouteParams.intermediates,
+          {
+            id: place.id,
+            lat: place.lat,
+            lng: place.lng
+          }
+        ];
+
+    setBuiltRouteParams({
+      ...baseRouteParams,
+      intermediates,
+      refreshPlaces: false
+    });
+    setBuildNonce((previous) => previous + 1);
+    setRouteBuilt(true);
+    setRouteInfo((previous) => ({
+      ...previous,
+      status: 'loading',
+      distance: '—',
+      duration: '—',
+      elevation: null,
+      errorMessage: undefined
+    }));
+  }, [builtRouteParams, from, mode, to]);
+
+  const handleMapPickSetStart = useCallback((point: RouteEndpointPoint) => {
+    setStartPoint(point);
+    setFrom(point.address);
+    setMapPickMode(false);
+  }, []);
+
+  const handleMapPickSetDestination = useCallback((point: RouteEndpointPoint) => {
+    setDestinationPoint(point);
+    setTo(point.address);
+    setMapPickMode(false);
+  }, []);
+
+  const handleFromChange = useCallback((value: string) => {
+    setFrom(value);
+    if (!value.trim()) {
+      setStartPoint(null);
+    }
+  }, []);
+
+  const handleToChange = useCallback((value: string) => {
+    setTo(value);
+    if (!value.trim()) {
+      setDestinationPoint(null);
+    }
+  }, []);
+
+  const handleMapPickCancel = useCallback(() => {
+    setMapPickMode(false);
+  }, []);
+
+  const handleMapPickToggle = useCallback(() => {
+    setMapPickMode((prev) => !prev);
+  }, []);
+
+  return (
+    <main className={`app-shell ${routeBuilt ? 'app-state-route' : 'app-state-empty'}`}>
+      <section className="main-area">
+        <Sidebar
+          routeBuilt={routeBuilt}
+          mode={mode}
+          activeTab={activeTab}
+          selectedPlace={selectedPlace}
+          routeInfo={routeInfo}
+          from={from}
+          to={to}
+          mapPickMode={mapPickMode}
+          onFromChange={handleFromChange}
+          onToChange={handleToChange}
+          onModeChange={setMode}
+          onBuildRoute={handleBuildRoute}
+          onTabChange={setActiveTab}
+          onSelectPlace={handleSelectPlace}
+          onAddPlaceToRoute={handleAddPlaceToRoute}
+          onReset={handleReset}
+          onMapPickToggle={handleMapPickToggle}
+        />
+        <MapPane
+          routeBuilt={routeBuilt}
+          buildNonce={buildNonce}
+          mode={builtRouteParams?.mode ?? mode}
+          origin={builtRouteParams?.origin ?? ''}
+          destination={builtRouteParams?.destination ?? ''}
+          intermediates={builtRouteParams?.intermediates ?? EMPTY_INTERMEDIATES}
+          refreshPlaces={builtRouteParams?.refreshPlaces ?? true}
+          routePlaces={routeInfo.interestingPlaces}
+          selectedPlace={selectedPlace}
+          mapPickMode={mapPickMode}
+          startPoint={startPoint}
+          destinationPoint={destinationPoint}
+          onSelectPlace={handleSelectPlace}
+          onRouteInfoChange={setRouteInfo}
+          onMapPickSetStart={handleMapPickSetStart}
+          onMapPickSetDestination={handleMapPickSetDestination}
+          onMapPickCancel={handleMapPickCancel}
+        />
+      </section>
+    </main>
+  );
+}
+
+export default App;
