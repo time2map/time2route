@@ -111,7 +111,7 @@
   font-weight: 800;
   font-size: 16px;
   letter-spacing: -0.03em;
-  background: linear-gradient(135deg, var(--red), var(--green));
+  background: var(--red);
   color: var(--surface);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -309,6 +309,110 @@
   color: var(--fg);
   border-color: var(--red);
   box-shadow: var(--shadow-md);
+}
+
+.location-dropdown {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 0;
+  right: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-lg);
+  max-height: 230px;
+  overflow-y: auto;
+  display: none;
+  z-index: 50;
+}
+
+.location-dropdown.visible {
+  display: block;
+}
+
+.location-dropdown::-webkit-scrollbar {
+  width: 3px;
+}
+
+.location-dropdown::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 2px;
+}
+
+.location-option {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  cursor: pointer;
+  transition: background var(--transition);
+  border: none;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+}
+
+.location-option:last-child {
+  border-bottom: none;
+}
+
+.location-option:hover,
+.location-option.highlighted {
+  background: var(--red-glass);
+}
+
+.location-option .loc-icon {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--muted);
+}
+
+.location-option .loc-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.location-option .loc-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.location-option .loc-name {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fg);
+}
+
+.location-option .loc-sub {
+  display: block;
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.location-option .loc-distance {
+  font-size: 11px;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+.location-dropdown-empty {
+  padding: 12px 14px;
+  font-size: 12px;
+  color: var(--muted);
+  text-align: center;
 }
 
 .map-pick-hint {

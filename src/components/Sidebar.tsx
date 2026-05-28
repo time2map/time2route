@@ -9,6 +9,7 @@ import { PlacesPanel } from './PlacesPanel';
 import { RouteOverview } from './RouteOverview';
 import { RoutePlannerForm } from './RoutePlannerForm';
 import { SidebarLogo } from './SidebarLogo';
+import type { PlaceAutocompleteSelection } from '../api/placeAutocomplete';
 
 type SidebarTab = 'overview' | 'places';
 
@@ -30,8 +31,12 @@ type SidebarProps = {
   to: string;
   mapPickMode: boolean;
   mapPickTarget: 'start' | 'destination' | null;
+  map?: google.maps.Map | null;
   onFromChange: (value: string) => void;
   onToChange: (value: string) => void;
+  onFromPlaceSelect?: (place: PlaceAutocompleteSelection) => void;
+  onToPlaceSelect?: (place: PlaceAutocompleteSelection) => void;
+  onSwapLocations: () => void;
   onModeChange: (value: ActivityMode) => void;
   onBuildRoute: () => void;
   onTabChange: (tab: SidebarTab) => void;
@@ -41,6 +46,7 @@ type SidebarProps = {
   onReset: () => void;
   onMapPickToggle: () => void;
   onMapPickFocusTarget: (target: 'start' | 'destination') => void;
+  onMapPickCancel: () => void;
 };
 
 export function Sidebar(props: Readonly<SidebarProps>) {
@@ -55,8 +61,12 @@ export function Sidebar(props: Readonly<SidebarProps>) {
     to,
     mapPickMode,
     mapPickTarget,
+    map,
     onFromChange,
     onToChange,
+    onFromPlaceSelect,
+    onToPlaceSelect,
+    onSwapLocations,
     onModeChange,
     onBuildRoute,
     onTabChange,
@@ -65,7 +75,8 @@ export function Sidebar(props: Readonly<SidebarProps>) {
     onRemovePlaceFromRoute,
     onReset,
     onMapPickToggle,
-    onMapPickFocusTarget
+    onMapPickFocusTarget,
+    onMapPickCancel
   } = props;
 
   const [isMobileSheetExpanded, setIsMobileSheetExpanded] = useState(true);
@@ -102,16 +113,17 @@ export function Sidebar(props: Readonly<SidebarProps>) {
     mode,
     mapPickMode,
     mapPickTarget,
+    map,
     onFromChange,
     onToChange,
+    onFromPlaceSelect,
+    onToPlaceSelect,
     onModeChange,
     onBuildRoute,
     onMapPickToggle,
     onMapPickFocusTarget,
-    onSwapLocations: () => {
-      onFromChange(to);
-      onToChange(from);
-    }
+    onMapPickCancel,
+    onSwapLocations
   };
 
   const placesPanel = (

@@ -5,6 +5,7 @@ import { createPlacePinElement } from '../utils/placePinMarker';
 import { filterPlacesNearRoute } from '../utils/placesAlongRoute';
 import { searchPlacesAlongRoute } from '../api/secrchPlacesAlongRoute';
 import type { ActivityMode, ElevationStats, InterestingPlace, RouteIntermediatePoint } from '../utils/types';
+import { bindMapViewportBounds } from '../api/placeAutocomplete';
 import { resolvePlaceCategory } from '../utils/poiTypes';
 
 const modeLabel: Record<ActivityMode, string> = {
@@ -40,6 +41,7 @@ type MapPaneProps = {
   onMapPickSetStart: (point: RouteEndpointPoint) => void;
   onMapPickSetDestination: (point: RouteEndpointPoint) => void;
   onMapPickCancel: () => void;
+  onMapReady?: (map: google.maps.Map) => void;
 };
 
 type RouteEndpointPoint = {
@@ -55,6 +57,7 @@ type MapPickState = {
 };
 
 const GOOGLE_SCRIPT_ID = 'google-maps-js';
+const DEMO_MAP_ID = '4504f8b37365c3d0';
 
 const defaultCenter: google.maps.LatLngLiteral = { lat: 52.3676, lng: 4.9041 };
 
@@ -263,7 +266,8 @@ export function MapPane({
   onRouteInfoChange,
   onMapPickSetStart,
   onMapPickSetDestination,
-  onMapPickCancel
+  onMapPickCancel,
+  onMapReady
 }: Readonly<MapPaneProps>) {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
@@ -282,7 +286,8 @@ export function MapPane({
   const [mapPick, setMapPick] = useState<MapPickState | null>(null);
   const [isLocatingUser, setIsLocatingUser] = useState(false);
   const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
-  const mapId = (import.meta.env.VITE_GOOGLE_MAPS_MAP_ID as string | undefined) ?? 'DEMO_MAP_ID';
+  const configuredMapId = (import.meta.env.VITE_GOOGLE_MAPS_MAP_ID as string | undefined)?.trim();
+  const mapId = configuredMapId || DEMO_MAP_ID;
 
   const clearPickMarker = useCallback(() => {
     if (pickMarkerRef.current) {
@@ -374,11 +379,19 @@ export function MapPane({
         mapRef.current ??= new mapsApi.Map(mapContainerRef.current, {
           center: defaultCenter,
           zoom: 13,
+          disableDefaultUI: true,
+          zoomControl: false,
           mapTypeControl: false,
+          scaleControl: false,
           streetViewControl: false,
+          rotateControl: false,
           fullscreenControl: false,
+          panControl: false,
+          colorScheme: 'DARK',
           mapId
         });
+        bindMapViewportBounds(mapRef.current);
+        onMapReady?.(mapRef.current);
       })
       .catch((error: unknown) => {
         const message = error instanceof Error ? error.message : 'Map load failed';

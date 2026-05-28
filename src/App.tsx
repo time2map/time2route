@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react';
+import type { PlaceAutocompleteSelection } from './api/placeAutocomplete';
 import './AppLayout.css';
 import './AppLayout.mobile.css';
 import { MapPane } from './components/MapPane';
@@ -58,6 +59,7 @@ function App() {
   const [mapPickMode, setMapPickMode] = useState(false);
   const [mapPickTarget, setMapPickTarget] = useState<MapPickTarget>(null);
   const [endpointSelectionPending, setEndpointSelectionPending] = useState(true);
+  const [mapInstance, setMapInstance] = useState<google.maps.Map | null>(null);
   const [routeInfo, setRouteInfo] = useState<RouteInfo>({
     status: 'idle',
     distance: '—',
@@ -224,6 +226,36 @@ function App() {
     }
   }, []);
 
+  const handleFromPlaceSelect = useCallback((place: PlaceAutocompleteSelection) => {
+    const address = place.address ?? place.name;
+    setFrom(address);
+    setStartPoint({ lat: place.lat, lng: place.lng, address });
+    setMapPickMode(false);
+    setMapPickTarget(null);
+    setEndpointSelectionPending(true);
+  }, []);
+
+  const handleToPlaceSelect = useCallback((place: PlaceAutocompleteSelection) => {
+    const address = place.address ?? place.name;
+    setTo(address);
+    setDestinationPoint({ lat: place.lat, lng: place.lng, address });
+    setMapPickMode(false);
+    setMapPickTarget(null);
+    setEndpointSelectionPending(true);
+  }, []);
+
+  const handleSwapLocations = useCallback(() => {
+    setFrom(to);
+    setTo(from);
+    setStartPoint(destinationPoint);
+    setDestinationPoint(startPoint);
+    setEndpointSelectionPending(true);
+  }, [destinationPoint, from, startPoint, to]);
+
+  const handleMapReady = useCallback((map: google.maps.Map) => {
+    setMapInstance(map);
+  }, []);
+
   const handleMapPickCancel = useCallback(() => {
     setMapPickMode(false);
     setMapPickTarget(null);
@@ -258,8 +290,12 @@ function App() {
           to={to}
           mapPickMode={mapPickMode}
           mapPickTarget={mapPickTarget}
+          map={mapInstance}
           onFromChange={handleFromChange}
           onToChange={handleToChange}
+          onFromPlaceSelect={handleFromPlaceSelect}
+          onToPlaceSelect={handleToPlaceSelect}
+          onSwapLocations={handleSwapLocations}
           onModeChange={setMode}
           onBuildRoute={handleBuildRoute}
           onTabChange={setActiveTab}
@@ -269,6 +305,7 @@ function App() {
           onReset={handleReset}
           onMapPickToggle={handleMapPickToggle}
           onMapPickFocusTarget={handleMapPickFocusTarget}
+          onMapPickCancel={handleMapPickCancel}
         />
         <MapPane
           routeBuilt={routeBuilt}
@@ -291,6 +328,7 @@ function App() {
           onMapPickSetStart={handleMapPickSetStart}
           onMapPickSetDestination={handleMapPickSetDestination}
           onMapPickCancel={handleMapPickCancel}
+          onMapReady={handleMapReady}
         />
       </section>
     </main>
