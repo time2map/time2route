@@ -729,10 +729,28 @@ export function MapPane({
     const selectedMarker = placeMarkersRef.current.find(({ id }) => id === selectedPlace);
     if (!selectedMarker) return;
 
+    const withPadding = map as google.maps.Map & {
+      setOptions: (options: google.maps.MapOptions & { padding?: google.maps.Padding }) => void;
+    };
+    const fitPadding = getRouteFitPadding(map);
+    withPadding.setOptions({
+      padding: fitPadding
+    });
+
     map.panTo({ lat: selectedMarker.place.lat, lng: selectedMarker.place.lng });
 
     const targetZoom = Math.max(map.getZoom() ?? 0, 16);
     map.setZoom(targetZoom);
+
+    const isMobile = globalThis.window.matchMedia('(max-width: 768px)').matches;
+    if (isMobile) {
+      const topPadding = fitPadding.top ?? 0;
+      const bottomPadding = fitPadding.bottom ?? 0;
+      const verticalShift = Math.round(Math.max(0, bottomPadding - topPadding) * 0.35);
+      if (verticalShift > 0) {
+        map.panBy(0, verticalShift);
+      }
+    }
   }, [selectedPlace, routeBuilt, onSelectPlace]);
 
   const handleSetStart = () => {

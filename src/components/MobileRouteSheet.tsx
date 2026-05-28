@@ -5,6 +5,7 @@ type SidebarTab = 'overview' | 'places';
 
 type MobileRouteSheetProps = {
   expanded: boolean;
+  expandedSnap?: 'middle' | 'intermediate';
   routeBuilt: boolean;
   activeTab: SidebarTab;
   title: string;
@@ -71,6 +72,7 @@ function getUniqueSnapPoints(snapPoints: {
 
 export function MobileRouteSheet({
   expanded,
+  expandedSnap = 'intermediate',
   routeBuilt,
   activeTab,
   title,
@@ -85,7 +87,8 @@ export function MobileRouteSheet({
       return 128;
     }
     const snapPoints = getSheetSnapPoints(routeBuilt);
-    return expanded ? snapPoints.intermediate : snapPoints.min;
+    if (!expanded) return snapPoints.min;
+    return expandedSnap === 'middle' ? snapPoints.middle : snapPoints.intermediate;
   })();
 
   const [sheetHeight, setSheetHeight] = useState(initialHeight);
@@ -137,8 +140,20 @@ export function MobileRouteSheet({
     }
 
     const snapPoints = getSheetSnapPoints(routeBuilt);
-    applySheetHeight(expanded ? snapPoints.intermediate : snapPoints.min);
-  }, [applySheetHeight, expanded, routeBuilt]);
+    const nextHeight = !expanded
+      ? snapPoints.min
+      : expandedSnap === 'middle'
+        ? snapPoints.middle
+        : snapPoints.intermediate;
+
+    const frameId = requestAnimationFrame(() => {
+      applySheetHeight(nextHeight);
+    });
+
+    return () => {
+      cancelAnimationFrame(frameId);
+    };
+  }, [applySheetHeight, expanded, expandedSnap, routeBuilt]);
 
   const handlePointerDown = useCallback((event: PointerEvent<HTMLButtonElement>) => {
     if (event.pointerType === 'mouse' && event.button !== 0) return;
