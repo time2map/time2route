@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 import './AppLayout.css';
+import './AppLayout.mobile.css';
 import { MapPane } from './components/MapPane';
 import { Sidebar } from './components/Sidebar';
 import type { ActivityMode, ElevationStats, InterestingPlace, RouteIntermediatePoint } from './utils/types';
@@ -18,6 +19,8 @@ type RouteEndpointPoint = {
   lng: number;
   address: string;
 };
+
+type MapPickTarget = 'start' | 'destination' | null;
 
 const MAX_ROUTE_STOPS = 10;
 const EMPTY_INTERMEDIATES: RouteIntermediatePoint[] = [];
@@ -53,6 +56,8 @@ function App() {
   const [startPoint, setStartPoint] = useState<RouteEndpointPoint | null>(null);
   const [destinationPoint, setDestinationPoint] = useState<RouteEndpointPoint | null>(null);
   const [mapPickMode, setMapPickMode] = useState(false);
+  const [mapPickTarget, setMapPickTarget] = useState<MapPickTarget>(null);
+  const [endpointSelectionPending, setEndpointSelectionPending] = useState(true);
   const [routeInfo, setRouteInfo] = useState<RouteInfo>({
     status: 'idle',
     distance: '—',
@@ -71,6 +76,7 @@ function App() {
     });
     setBuildNonce((previous) => previous + 1);
     setRouteBuilt(true);
+    setEndpointSelectionPending(false);
     setActiveTab('overview');
     setRouteInfo({
       status: 'loading',
@@ -86,6 +92,13 @@ function App() {
     setBuiltRouteParams(null);
     setSelectedPlace(null);
     setActiveTab('overview');
+    setFrom('');
+    setTo('');
+    setStartPoint(null);
+    setDestinationPoint(null);
+    setMapPickMode(false);
+    setMapPickTarget(null);
+    setEndpointSelectionPending(true);
     setRouteInfo({
       status: 'idle',
       distance: '—',
@@ -183,16 +196,21 @@ function App() {
     setStartPoint(point);
     setFrom(point.address);
     setMapPickMode(false);
+    setMapPickTarget(null);
+    setEndpointSelectionPending(true);
   }, []);
 
   const handleMapPickSetDestination = useCallback((point: RouteEndpointPoint) => {
     setDestinationPoint(point);
     setTo(point.address);
     setMapPickMode(false);
+    setMapPickTarget(null);
+    setEndpointSelectionPending(true);
   }, []);
 
   const handleFromChange = useCallback((value: string) => {
     setFrom(value);
+    setEndpointSelectionPending(true);
     if (!value.trim()) {
       setStartPoint(null);
     }
@@ -200,6 +218,7 @@ function App() {
 
   const handleToChange = useCallback((value: string) => {
     setTo(value);
+    setEndpointSelectionPending(true);
     if (!value.trim()) {
       setDestinationPoint(null);
     }
@@ -207,10 +226,22 @@ function App() {
 
   const handleMapPickCancel = useCallback(() => {
     setMapPickMode(false);
+    setMapPickTarget(null);
   }, []);
 
   const handleMapPickToggle = useCallback(() => {
-    setMapPickMode((prev) => !prev);
+    setMapPickMode((prev) => {
+      const next = !prev;
+      if (!next) {
+        setMapPickTarget(null);
+      }
+      return next;
+    });
+  }, []);
+
+  const handleMapPickFocusTarget = useCallback((target: Exclude<MapPickTarget, null>) => {
+    setMapPickTarget(target);
+    setMapPickMode(true);
   }, []);
 
   return (
@@ -226,6 +257,7 @@ function App() {
           from={from}
           to={to}
           mapPickMode={mapPickMode}
+          mapPickTarget={mapPickTarget}
           onFromChange={handleFromChange}
           onToChange={handleToChange}
           onModeChange={setMode}
@@ -236,9 +268,12 @@ function App() {
           onRemovePlaceFromRoute={handleRemovePlaceFromRoute}
           onReset={handleReset}
           onMapPickToggle={handleMapPickToggle}
+          onMapPickFocusTarget={handleMapPickFocusTarget}
         />
         <MapPane
           routeBuilt={routeBuilt}
+          routeStatus={routeInfo.status}
+          hideEndpointMarkers={routeInfo.status === 'ready' && !endpointSelectionPending}
           buildNonce={buildNonce}
           mode={builtRouteParams?.mode ?? mode}
           origin={builtRouteParams?.origin ?? ''}
@@ -248,6 +283,7 @@ function App() {
           routePlaces={routeInfo.interestingPlaces}
           selectedPlace={selectedPlace}
           mapPickMode={mapPickMode}
+          mapPickTarget={mapPickTarget}
           startPoint={startPoint}
           destinationPoint={destinationPoint}
           onSelectPlace={handleSelectPlace}

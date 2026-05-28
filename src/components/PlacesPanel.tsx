@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import type { InterestingPlace } from '../utils/types';
 import { PlaceCard, type PlacePhotoState } from './PlaceCard';
 import { RouteSummaryPlaceholder } from './RouteSummaryPlaceholder';
@@ -29,6 +30,8 @@ export function PlacesPanel({
   onRemoveFromRoute,
   onOpenInGoogleMaps
 }: Readonly<PlacesPanelProps>) {
+  const listRef = useRef<HTMLDivElement | null>(null);
+
   const stopIndexById = new Map<string, number>();
   routeIntermediates.forEach((stop, index) => {
     stopIndexById.set(stop.id, index);
@@ -47,6 +50,23 @@ export function PlacesPanel({
     return 0;
   });
 
+  useEffect(() => {
+    if (!selectedPlace) return;
+    const listElement = listRef.current;
+    if (!listElement) return;
+
+    const targetCard = listElement.querySelector<HTMLElement>(`[data-place-card-id="${selectedPlace}"]`);
+    if (!targetCard) return;
+
+    requestAnimationFrame(() => {
+      targetCard.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+        inline: 'nearest'
+      });
+    });
+  }, [selectedPlace]);
+
   if (showPlaceholder) {
     return (
       <RouteSummaryPlaceholder
@@ -60,20 +80,25 @@ export function PlacesPanel({
     <>
       <h3 className="places-title">Interesting places along the route</h3>
 
-      <div className="place-list place-list-single">
+      <div
+        ref={listRef}
+        className="place-list place-list-single">
         {sortedPlaces.map((place) => (
-          <PlaceCard
+          <div
             key={place.id}
-            place={place}
-            selected={selectedPlace === place.id}
-            isAddedToRoute={stopIndexById.has(place.id)}
-            routeStopIndex={(stopIndexById.get(place.id) ?? -1) + 1}
-            photoState={photoCache[place.id]}
-            onSelect={onSelectPlace}
-            onAddToRoute={onAddToRoute}
-            onRemoveFromRoute={onRemoveFromRoute}
-            onOpenInGoogleMaps={onOpenInGoogleMaps}
-          />
+            data-place-card-id={place.id}>
+            <PlaceCard
+              place={place}
+              selected={selectedPlace === place.id}
+              isAddedToRoute={stopIndexById.has(place.id)}
+              routeStopIndex={(stopIndexById.get(place.id) ?? -1) + 1}
+              photoState={photoCache[place.id]}
+              onSelect={onSelectPlace}
+              onAddToRoute={onAddToRoute}
+              onRemoveFromRoute={onRemoveFromRoute}
+              onOpenInGoogleMaps={onOpenInGoogleMaps}
+            />
+          </div>
         ))}
       </div>
     </>

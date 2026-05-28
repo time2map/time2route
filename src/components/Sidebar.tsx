@@ -29,6 +29,7 @@ type SidebarProps = {
   from: string;
   to: string;
   mapPickMode: boolean;
+  mapPickTarget: 'start' | 'destination' | null;
   onFromChange: (value: string) => void;
   onToChange: (value: string) => void;
   onModeChange: (value: ActivityMode) => void;
@@ -39,6 +40,7 @@ type SidebarProps = {
   onRemovePlaceFromRoute: (placeId: string) => void;
   onReset: () => void;
   onMapPickToggle: () => void;
+  onMapPickFocusTarget: (target: 'start' | 'destination') => void;
 };
 
 export function Sidebar(props: Readonly<SidebarProps>) {
@@ -52,6 +54,7 @@ export function Sidebar(props: Readonly<SidebarProps>) {
     from,
     to,
     mapPickMode,
+    mapPickTarget,
     onFromChange,
     onToChange,
     onModeChange,
@@ -61,7 +64,8 @@ export function Sidebar(props: Readonly<SidebarProps>) {
     onAddPlaceToRoute,
     onRemovePlaceFromRoute,
     onReset,
-    onMapPickToggle
+    onMapPickToggle,
+    onMapPickFocusTarget
   } = props;
 
   const [isMobileSheetExpanded, setIsMobileSheetExpanded] = useState(true);
@@ -97,11 +101,13 @@ export function Sidebar(props: Readonly<SidebarProps>) {
     to,
     mode,
     mapPickMode,
+    mapPickTarget,
     onFromChange,
     onToChange,
     onModeChange,
     onBuildRoute,
     onMapPickToggle,
+    onMapPickFocusTarget,
     onSwapLocations: () => {
       onFromChange(to);
       onToChange(from);

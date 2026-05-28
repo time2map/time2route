@@ -52,12 +52,7 @@ export function RouteOverview({
   onReset
 }: Readonly<RouteOverviewProps>) {
   if (showRouteSkeleton) {
-    return (
-      <>
-        <RouteSummarySkeleton />
-        {variant === 'mobile' && onReset && <MobileResetButton onReset={onReset} />}
-      </>
-    );
+    return <RouteSummarySkeleton />;
   }
 
   if (showRouteError) {
@@ -100,7 +95,7 @@ export function RouteOverview({
 function MobileResetButton({ onReset }: Readonly<{ onReset: () => void }>) {
   return (
     <button
-      className="ghost-btn sidebar-mobile-reset-btn"
+      className="cta-btn sidebar-mobile-reset-btn"
       onClick={onReset}
       type="button">
       Plan a new route

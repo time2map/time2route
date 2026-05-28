@@ -10,11 +10,13 @@ type RoutePlannerFormProps = {
   to: string;
   mode: ActivityMode;
   mapPickMode: boolean;
+  mapPickTarget: 'start' | 'destination' | null;
   onFromChange: (value: string) => void;
   onToChange: (value: string) => void;
   onModeChange: (value: ActivityMode) => void;
   onBuildRoute: () => void;
   onMapPickToggle: () => void;
+  onMapPickFocusTarget: (target: 'start' | 'destination') => void;
   onSwapLocations: () => void;
 };
 
@@ -24,16 +26,28 @@ export function RoutePlannerForm({
   to,
   mode,
   mapPickMode,
+  mapPickTarget,
   onFromChange,
   onToChange,
   onModeChange,
   onBuildRoute,
   onMapPickToggle,
+  onMapPickFocusTarget,
   onSwapLocations
 }: Readonly<RoutePlannerFormProps>) {
   const isMobile = variant === 'mobile';
   const fromInputId = isMobile ? 'fromInputMob' : 'fromInput';
   const toInputId = isMobile ? 'toInputMob' : 'toInput';
+  let mapPickLabel = 'Set a point on the map';
+  if (mapPickMode) {
+    mapPickLabel = 'Picking from map…';
+    if (mapPickTarget === 'start') {
+      mapPickLabel = 'Pick start point on map…';
+    } else if (mapPickTarget === 'destination') {
+      mapPickLabel = 'Pick destination on map…';
+    }
+  }
+  const isBuildRouteDisabled = !from.trim() || !to.trim();
 
   const content = (
     <>
@@ -45,11 +59,19 @@ export function RoutePlannerForm({
               id={fromInputId}
               value={from}
               onChange={(event) => onFromChange(event.target.value)}
+              onFocus={() => {
+                if (!from.trim()) {
+                  onMapPickFocusTarget('start');
+                }
+              }}
               placeholder="Start point"
             />
             <button
               className="clear-btn"
-              onClick={() => onFromChange('')}
+              onClick={() => {
+                onFromChange('');
+                onMapPickFocusTarget('start');
+              }}
               type="button"
               aria-label="Clear start point">
               ×
@@ -70,11 +92,19 @@ export function RoutePlannerForm({
               id={toInputId}
               value={to}
               onChange={(event) => onToChange(event.target.value)}
+              onFocus={() => {
+                if (!to.trim()) {
+                  onMapPickFocusTarget('destination');
+                }
+              }}
               placeholder="Destination"
             />
             <button
               className="clear-btn"
-              onClick={() => onToChange('')}
+              onClick={() => {
+                onToChange('');
+                onMapPickFocusTarget('destination');
+              }}
               type="button"
               aria-label="Clear destination">
               ×
@@ -89,11 +119,19 @@ export function RoutePlannerForm({
               id={fromInputId}
               value={from}
               onChange={(event) => onFromChange(event.target.value)}
+              onFocus={() => {
+                if (!from.trim()) {
+                  onMapPickFocusTarget('start');
+                }
+              }}
               placeholder="Start point"
             />
             <button
               className="clear-btn"
-              onClick={() => onFromChange('')}
+              onClick={() => {
+                onFromChange('');
+                onMapPickFocusTarget('start');
+              }}
               type="button"
               aria-label="Clear start point">
               ×
@@ -112,11 +150,19 @@ export function RoutePlannerForm({
               id={toInputId}
               value={to}
               onChange={(event) => onToChange(event.target.value)}
+              onFocus={() => {
+                if (!to.trim()) {
+                  onMapPickFocusTarget('destination');
+                }
+              }}
               placeholder="Destination"
             />
             <button
               className="clear-btn"
-              onClick={() => onToChange('')}
+              onClick={() => {
+                onToChange('');
+                onMapPickFocusTarget('destination');
+              }}
               type="button"
               aria-label="Clear destination">
               ×
@@ -130,7 +176,7 @@ export function RoutePlannerForm({
         onClick={onMapPickToggle}
         type="button">
         <MapPickIcon />
-        <span>{mapPickMode ? 'Picking from map…' : 'Set a point on the map'}</span>
+        <span>{mapPickLabel}</span>
       </button>
 
       <div className="segmented-control">
@@ -149,6 +195,7 @@ export function RoutePlannerForm({
       <button
         className="cta-btn"
         onClick={onBuildRoute}
+        disabled={isBuildRouteDisabled}
         type="button">
         Build shortest route
       </button>

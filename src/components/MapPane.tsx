@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { buildAndDrawRoute, clearRouteFromMap, formatDistance, formatDuration } from '../utils/googleRouteLayer';
 import { getRouteElevationStats } from '../utils/elevationUtils';
 import { createPlacePinElement } from '../utils/placePinMarker';
@@ -14,6 +14,8 @@ const modeLabel: Record<ActivityMode, string> = {
 
 type MapPaneProps = {
   routeBuilt: boolean;
+  routeStatus: 'idle' | 'loading' | 'ready' | 'error';
+  hideEndpointMarkers: boolean;
   buildNonce: number;
   mode: ActivityMode;
   origin: string;
@@ -23,6 +25,7 @@ type MapPaneProps = {
   routePlaces: InterestingPlace[];
   selectedPlace: string | null;
   mapPickMode: boolean;
+  mapPickTarget: 'start' | 'destination' | null;
   startPoint: RouteEndpointPoint | null;
   destinationPoint: RouteEndpointPoint | null;
   onSelectPlace: (placeId: string) => void;
@@ -212,8 +215,38 @@ function createPlaceMarkerElement(params: {
   return element;
 }
 
+function getRouteFitPadding(map: google.maps.Map): google.maps.Padding {
+  const isMobile = globalThis.window.matchMedia('(max-width: 768px)').matches;
+
+  if (!isMobile) {
+    return {
+      top: 40,
+      right: 40,
+      bottom: 40,
+      left: 40
+    };
+  }
+
+  const mapHeight = map.getDiv().getBoundingClientRect().height;
+  const sheetElement = document.querySelector('.sidebar-mobile-sheet') as HTMLElement | null;
+  const sheetHeight = sheetElement?.getBoundingClientRect().height ?? 0;
+  const bottomPadding = Math.min(
+    Math.round(sheetHeight + 24),
+    Math.round(mapHeight * 0.72)
+  );
+
+  return {
+    top: 72,
+    right: 20,
+    bottom: bottomPadding,
+    left: 20
+  };
+}
+
 export function MapPane({
   routeBuilt,
+  routeStatus,
+  hideEndpointMarkers,
   buildNonce,
   mode,
   origin,
@@ -223,6 +256,7 @@ export function MapPane({
   routePlaces,
   selectedPlace,
   mapPickMode,
+  mapPickTarget,
   startPoint,
   destinationPoint,
   onSelectPlace,
@@ -236,14 +270,88 @@ export function MapPane({
   const placeMarkersRef = useRef<PlaceMarker[]>([]);
   const pickMarkerRef = useRef<google.maps.marker.AdvancedMarkerElement | null>(null);
   const pickPinElRef = useRef<HTMLDivElement | null>(null);
+  const userLocationMarkerRef = useRef<google.maps.Marker | null>(null);
   const startMarkerRef = useRef<google.maps.marker.AdvancedMarkerElement | null>(null);
   const destinationMarkerRef = useRef<google.maps.marker.AdvancedMarkerElement | null>(null);
   const routePlacesRef = useRef<InterestingPlace[]>([]);
   const selectedPlaceRef = useRef<string | null>(null);
+  const ignoreNextMapPickClickRef = useRef(false);
+  const lastRoutePathRef = useRef<google.maps.LatLngLiteral[]>([]);
+  const fitRouteFrameRef = useRef<number | null>(null);
   const [distanceLabel, setDistanceLabel] = useState('—');
   const [mapPick, setMapPick] = useState<MapPickState | null>(null);
+  const [isLocatingUser, setIsLocatingUser] = useState(false);
   const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
   const mapId = (import.meta.env.VITE_GOOGLE_MAPS_MAP_ID as string | undefined) ?? 'DEMO_MAP_ID';
+
+  const clearPickMarker = useCallback(() => {
+    if (pickMarkerRef.current) {
+      pickMarkerRef.current.map = null;
+      pickMarkerRef.current = null;
+    }
+    pickPinElRef.current = null;
+    setMapPick(null);
+  }, []);
+
+  const fitRouteToVisibleArea = useCallback((routePath: google.maps.LatLngLiteral[]) => {
+    const map = mapRef.current;
+    if (!map || routePath.length < 2) return;
+
+    if (fitRouteFrameRef.current) {
+      cancelAnimationFrame(fitRouteFrameRef.current);
+    }
+
+    fitRouteFrameRef.current = requestAnimationFrame(() => {
+      const bounds = new google.maps.LatLngBounds();
+      routePath.forEach((point) => {
+        bounds.extend(point);
+      });
+      map.fitBounds(bounds, getRouteFitPadding(map));
+    });
+  }, []);
+
+  const handleLocateUser = useCallback(() => {
+    const map = mapRef.current;
+    if (!map || isLocatingUser) return;
+
+    if (!('geolocation' in navigator)) {
+      console.warn('Geolocation is not supported in this browser.');
+      return;
+    }
+
+    setIsLocatingUser(true);
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const location = {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude
+        };
+
+        map.panTo(location);
+        map.setZoom(Math.max(map.getZoom() ?? 0, 16));
+        if (userLocationMarkerRef.current) {
+          userLocationMarkerRef.current.setPosition(location);
+        } else {
+          userLocationMarkerRef.current = new google.maps.Marker({
+            map,
+            position: location,
+            title: 'My location'
+          });
+        }
+        setIsLocatingUser(false);
+      },
+      (error) => {
+        console.warn('Unable to access current location', error);
+        setIsLocatingUser(false);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 30000
+      }
+    );
+  }, [isLocatingUser]);
 
   useEffect(() => {
     routePlacesRef.current = routePlaces;
@@ -307,6 +415,11 @@ export function MapPane({
     }
 
     const listener = map.addListener('click', (event: google.maps.MapMouseEvent) => {
+      if (ignoreNextMapPickClickRef.current) {
+        ignoreNextMapPickClickRef.current = false;
+        return;
+      }
+
       const latLng = event.latLng;
       if (!latLng) return;
 
@@ -336,7 +449,21 @@ export function MapPane({
       const geocoder = new google.maps.Geocoder();
       void geocoder.geocode({ location: { lat, lng } }).then((response) => {
         const address = response.results[0]?.formatted_address ?? `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
-        setMapPick({ lat, lng, address });
+        const point = { lat, lng, address };
+
+        if (mapPickTarget === 'start') {
+          onMapPickSetStart(point);
+          clearPickMarker();
+          return;
+        }
+
+        if (mapPickTarget === 'destination') {
+          onMapPickSetDestination(point);
+          clearPickMarker();
+          return;
+        }
+
+        setMapPick(point);
       });
     });
 
@@ -346,11 +473,25 @@ export function MapPane({
         container.style.cursor = '';
       }
     };
-  }, [mapPickMode]);
+  }, [clearPickMarker, mapPickMode, mapPickTarget, onMapPickSetDestination, onMapPickSetStart]);
 
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
+
+    if (hideEndpointMarkers) {
+      if (startMarkerRef.current) {
+        startMarkerRef.current.map = null;
+        startMarkerRef.current = null;
+      }
+
+      if (destinationMarkerRef.current) {
+        destinationMarkerRef.current.map = null;
+        destinationMarkerRef.current = null;
+      }
+
+      return;
+    }
 
     let disposed = false;
 
@@ -401,7 +542,7 @@ export function MapPane({
     return () => {
       disposed = true;
     };
-  }, [destinationPoint, startPoint]);
+  }, [destinationPoint, hideEndpointMarkers, routeStatus, startPoint]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -415,6 +556,7 @@ export function MapPane({
     };
 
     if (!routeBuilt) {
+      lastRoutePathRef.current = [];
       clearPlaceMarkers();
       clearRouteFromMap();
       return;
@@ -439,21 +581,25 @@ export function MapPane({
       origin,
       destination,
       activityMode: mode,
-      intermediates
+      intermediates,
+      fitBounds: false
     })
       .then((result) => {
         if (disposed) return;
         const distance = formatDistance(result.distanceMeters);
         const duration = formatDuration(result.durationMillis);
         setDistanceLabel(distance);
+        const routePath =
+          result.path?.map((point) => ({
+            lat: point.lat,
+            lng: point.lng
+          })) ?? [];
+
+        lastRoutePathRef.current = routePath;
+        fitRouteToVisibleArea(routePath);
 
         const applyRouteInfo = (elevation: ElevationStats | null) => {
           const encodedPolyline = result.encodedPolyline;
-          const routePath =
-            result.path?.map((point) => ({
-              lat: point.lat,
-              lng: point.lng
-            })) ?? [];
 
           const placesPromise =
             refreshPlaces && encodedPolyline && apiKey && routePath.length > 1
@@ -547,6 +693,7 @@ export function MapPane({
     onRouteInfoChange,
     onSelectPlace,
     origin,
+    fitRouteToVisibleArea,
     refreshPlaces,
     routeBuilt
   ]);
@@ -590,6 +737,7 @@ export function MapPane({
 
   const handleSetStart = () => {
     if (mapPick) {
+      ignoreNextMapPickClickRef.current = true;
       onMapPickSetStart(mapPick);
       clearPickMarker();
     }
@@ -597,6 +745,7 @@ export function MapPane({
 
   const handleSetDestination = () => {
     if (mapPick) {
+      ignoreNextMapPickClickRef.current = true;
       onMapPickSetDestination(mapPick);
       clearPickMarker();
     }
@@ -605,15 +754,6 @@ export function MapPane({
   const handlePickCancel = () => {
     clearPickMarker();
     onMapPickCancel();
-  };
-
-  const clearPickMarker = () => {
-    if (pickMarkerRef.current) {
-      pickMarkerRef.current.map = null;
-      pickMarkerRef.current = null;
-    }
-    pickPinElRef.current = null;
-    setMapPick(null);
   };
 
   useEffect(() => {
@@ -652,6 +792,35 @@ export function MapPane({
         ref={mapContainerRef}
         className="google-map-canvas"
       />
+
+      <div className="map-float top-right">
+        <button
+          className="map-float-btn"
+          type="button"
+          onClick={handleLocateUser}
+          disabled={isLocatingUser}
+          aria-label="My location">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            aria-hidden="true">
+            <circle
+              cx="12"
+              cy="12"
+              r="3"
+            />
+            <circle
+              cx="12"
+              cy="12"
+              r="8"
+              fill="none"
+            />
+            <path d="M12 2v4m0 12v4m10-10h-4M6 12H2" />
+          </svg>
+        </button>
+      </div>
 
       {routeBuilt && (
         <div className="map-badge">

@@ -3,7 +3,7 @@ import type { InterestingPlace, PlaceCategory, PlaceCategoryMeta } from './types
 export const PLACE_CATEGORY_META: Record<PlaceCategory, PlaceCategoryMeta> = {
   nature: {
     category: 'nature',
-    color: 'var(--green-active)',
+    color: 'var(--green)',
     label: 'Park / nature'
   },
   culture: {
