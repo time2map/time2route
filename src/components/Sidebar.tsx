@@ -25,6 +25,7 @@ type SidebarProps = {
     interestingPlaces: InterestingPlace[];
     errorMessage?: string;
   };
+  routeIntermediates: Array<{ id: string; lat: number; lng: number }>;
   from: string;
   to: string;
   mapPickMode: boolean;
@@ -35,6 +36,7 @@ type SidebarProps = {
   onTabChange: (tab: SidebarTab) => void;
   onSelectPlace: (placeId: string) => void;
   onAddPlaceToRoute: (place: InterestingPlace) => void;
+  onRemovePlaceFromRoute: (placeId: string) => void;
   onReset: () => void;
   onMapPickToggle: () => void;
 };
@@ -46,6 +48,7 @@ export function Sidebar(props: Readonly<SidebarProps>) {
     activeTab,
     selectedPlace,
     routeInfo,
+    routeIntermediates,
     from,
     to,
     mapPickMode,
@@ -56,6 +59,7 @@ export function Sidebar(props: Readonly<SidebarProps>) {
     onTabChange,
     onSelectPlace,
     onAddPlaceToRoute,
+    onRemovePlaceFromRoute,
     onReset,
     onMapPickToggle
   } = props;
@@ -108,6 +112,7 @@ export function Sidebar(props: Readonly<SidebarProps>) {
     <PlacesPanel
       places={viewModel.sortedInterestingPlaces}
       selectedPlace={selectedPlace}
+      routeIntermediates={routeIntermediates}
       photoCache={placePhotoCache}
       showPlaceholder={viewModel.showPlacesPlaceholder}
       placeholderMessage={viewModel.placesPlaceholderMessage}
@@ -119,6 +124,7 @@ export function Sidebar(props: Readonly<SidebarProps>) {
 
         onAddPlaceToRoute(place);
       }}
+      onRemoveFromRoute={onRemovePlaceFromRoute}
       onOpenInGoogleMaps={(placeId) => {
         const place = routeInfo.interestingPlaces.find((item) => item.id === placeId);
         if (!place) return;

@@ -1,6 +1,10 @@
 import type { MouseEvent, ReactNode } from 'react';
 import { resolvePlaceCategory } from '../utils/poiTypes';
 import type { InterestingPlace } from '../utils/types';
+import CulturePlaceIcon from './icons/CulturePlaceIcon';
+import NaturePlaceIcon from './icons/NaturePlaceIcon';
+import PoiPlaceIcon from './icons/PoiPlaceIcon';
+import RouteIcon from './icons/RouteIcon';
 
 export type PlacePhotoState = {
   status: 'loading' | 'loaded' | 'empty' | 'error';
@@ -12,9 +16,12 @@ type PlaceCardCategory = 'nature' | 'culture' | 'poi';
 type PlaceCardProps = {
   place: InterestingPlace;
   selected: boolean;
+  isAddedToRoute?: boolean;
+  routeStopIndex?: number;
   photoState?: PlacePhotoState;
   onSelect: (placeId: string) => void;
   onAddToRoute?: (placeId: string) => void;
+  onRemoveFromRoute?: (placeId: string) => void;
   onOpenInGoogleMaps?: (placeId: string) => void;
 };
 
@@ -75,79 +82,33 @@ function renderThumbContent(params: {
   return <PlaceCategoryIcon category={category} />;
 }
 
-function RouteIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      aria-hidden="true">
-      <path d="M6 20L18 4" />
-      <path d="M6 10l4-4" />
-      <path d="M14 18l4-4" />
-    </svg>
-  );
-}
-
 function PlaceCategoryIcon({ category }: Readonly<{ category: PlaceCardCategory }>) {
   if (category === 'nature') {
-    return (
-      <svg
-        className="place-card-v2__icon"
-        viewBox="0 0 24 24"
-        fill="none"
-        aria-hidden="true">
-        <path d="M12 21c4-4.2 6-7.7 6-10.6A6 6 0 0 0 6 10.4C6 13.3 8 16.8 12 21z" />
-        <path d="M12 15V8" />
-        <path d="M9 11l3-3 3 3" />
-      </svg>
-    );
+    return <NaturePlaceIcon />;
   }
 
   if (category === 'culture') {
-    return (
-      <svg
-        className="place-card-v2__icon"
-        viewBox="0 0 24 24"
-        fill="none"
-        aria-hidden="true">
-        <path d="M3 10h18" />
-        <path d="M5 10l7-5 7 5" />
-        <path d="M6 10v8" />
-        <path d="M10 10v8" />
-        <path d="M14 10v8" />
-        <path d="M18 10v8" />
-        <path d="M4 18h16" />
-      </svg>
-    );
+    return <CulturePlaceIcon />;
   }
 
-  return (
-    <svg
-      className="place-card-v2__icon"
-      viewBox="0 0 24 24"
-      fill="none"
-      aria-hidden="true">
-      <path d="M12 21s7-4.5 7-11a7 7 0 1 0-14 0c0 6.5 7 11 7 11z" />
-      <circle
-        cx="12"
-        cy="10"
-        r="2.5"
-      />
-    </svg>
-  );
+  return <PoiPlaceIcon />;
 }
 
 export function PlaceCard({
   place,
   selected,
+  isAddedToRoute = false,
+  routeStopIndex = 0,
   photoState,
   onSelect,
   onAddToRoute,
+  onRemoveFromRoute,
   onOpenInGoogleMaps
 }: Readonly<PlaceCardProps>) {
   const category = resolveCardCategory(place);
   const placeTypeLabel = formatPlaceType(place.primaryType);
   const distanceLabel = formatDistance(place.distanceToRouteM);
+  const showOnRouteBadge = isAddedToRoute || distanceLabel === 'On route';
   const photoUrl = selected && photoState?.status === 'loaded'
     ? photoState.photoUrl
     : undefined;
@@ -191,12 +152,13 @@ export function PlaceCard({
           <div className="place-card-v2__main">
             <div>
               <div className="place-card-v2__name">{place.name}</div>
+              {showOnRouteBadge ? <span className="place-card-v2__on-route">ON ROUTE</span> : null}
               <div className="place-card-v2__category">{placeTypeLabel}</div>
             </div>
           </div>
 
           <div className="place-card-v2__meta">
-            {distanceLabel ? (
+            {distanceLabel && !showOnRouteBadge ? (
               <span className="place-card-v2__meta-item">
                 <RouteIcon />
                 {distanceLabel}
@@ -214,6 +176,9 @@ export function PlaceCard({
 
       {selected && (
         <div className="place-card-v2__actions">
+          {isAddedToRoute && routeStopIndex > 0 ? (
+            <span className="place-card-v2__stop-index">Stop {routeStopIndex}</span>
+          ) : null}
           <button
             className="place-card-v2__action place-card-v2__action--ghost"
             type="button"
@@ -229,9 +194,13 @@ export function PlaceCard({
             type="button"
             onClick={(event) => {
               stopAction(event);
+              if (isAddedToRoute) {
+                onRemoveFromRoute?.(place.id);
+                return;
+              }
               onAddToRoute?.(place.id);
             }}>
-            Add to route
+            {isAddedToRoute ? 'Remove from route' : 'Add to route'}
           </button>
         </div>
       )}

@@ -24,6 +24,7 @@ export type InterestingPlace = {
   name: string
   lat: number
   lng: number
+  routeOrderM?: number
   primaryType?: string
   rating?: number
   userRatingCount?: number
@@ -61,6 +62,14 @@ export type RoutePoint =
 
 export type RouteActivityMode = 'walk' | 'bike'
 
+export type RouteIntermediatePoint = {
+  id: string
+  lat: number
+  lng: number
+  name?: string
+  routeOrderM?: number
+}
+
 export type BuiltRouteResult = {
   route: google.maps.routes.Route
   distanceMeters: number | null
@@ -76,7 +85,8 @@ export type BuildRouteParameters = {
   destination: RoutePoint
   activityMode?: RouteActivityMode
   fitBounds?: boolean
-  intermediates?: google.maps.LatLngLiteral[]
+  intermediates?: RouteIntermediatePoint[]
+  optimizeWaypointOrder?: boolean
 }
 
 export type RoutePathPoint =

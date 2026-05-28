@@ -4,7 +4,7 @@ import { getRouteElevationStats } from '../utils/elevationUtils';
 import { createPlacePinElement } from '../utils/placePinMarker';
 import { filterPlacesNearRoute } from '../utils/placesAlongRoute';
 import { searchPlacesAlongRoute } from '../api/secrchPlacesAlongRoute';
-import type { ActivityMode, ElevationStats, InterestingPlace } from '../utils/types';
+import type { ActivityMode, ElevationStats, InterestingPlace, RouteIntermediatePoint } from '../utils/types';
 import { resolvePlaceCategory } from '../utils/poiTypes';
 
 const modeLabel: Record<ActivityMode, string> = {
@@ -18,7 +18,7 @@ type MapPaneProps = {
   mode: ActivityMode;
   origin: string;
   destination: string;
-  intermediates: google.maps.LatLngLiteral[];
+  intermediates: RouteIntermediatePoint[];
   refreshPlaces: boolean;
   routePlaces: InterestingPlace[];
   selectedPlace: string | null;

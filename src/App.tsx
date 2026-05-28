@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react';
 import './AppLayout.css';
 import { MapPane } from './components/MapPane';
 import { Sidebar } from './components/Sidebar';
-import type { ActivityMode, ElevationStats, InterestingPlace } from './utils/types';
+import type { ActivityMode, ElevationStats, InterestingPlace, RouteIntermediatePoint } from './utils/types';
 
 type RouteInfo = {
   status: 'idle' | 'loading' | 'ready' | 'error';
@@ -19,11 +19,21 @@ type RouteEndpointPoint = {
   address: string;
 };
 
-type RouteIntermediate = google.maps.LatLngLiteral & {
-  id: string;
-};
+const MAX_ROUTE_STOPS = 10;
+const EMPTY_INTERMEDIATES: RouteIntermediatePoint[] = [];
 
-const EMPTY_INTERMEDIATES: RouteIntermediate[] = [];
+function normalizeRouteStops(stops: RouteIntermediatePoint[]) {
+  return stops.slice(0, MAX_ROUTE_STOPS);
+}
+
+function sortStopsByRouteOrder(stops: RouteIntermediatePoint[]) {
+  const allHaveOrder = stops.every((stop) => typeof stop.routeOrderM === 'number');
+  if (!allHaveOrder) {
+    return stops;
+  }
+
+  return [...stops].sort((a, b) => (a.routeOrderM ?? 0) - (b.routeOrderM ?? 0));
+}
 
 function App() {
   const [routeBuilt, setRouteBuilt] = useState(false);
@@ -33,7 +43,7 @@ function App() {
     origin: string;
     destination: string;
     mode: ActivityMode;
-    intermediates: RouteIntermediate[];
+    intermediates: RouteIntermediatePoint[];
     refreshPlaces: boolean;
   } | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'places'>('overview');
@@ -91,6 +101,11 @@ function App() {
   }, []);
 
   const handleAddPlaceToRoute = useCallback((place: InterestingPlace) => {
+    if (!Number.isFinite(place.lat) || !Number.isFinite(place.lng)) {
+      console.warn('Invalid place coordinates', place);
+      return;
+    }
+
     const baseRouteParams = builtRouteParams ?? {
       origin: from,
       destination: to,
@@ -99,20 +114,32 @@ function App() {
       refreshPlaces: true
     };
     const alreadyAdded = baseRouteParams.intermediates.some((point) => point.id === place.id);
-    const intermediates = alreadyAdded
-      ? baseRouteParams.intermediates
-      : [
-          ...baseRouteParams.intermediates,
-          {
-            id: place.id,
-            lat: place.lat,
-            lng: place.lng
-          }
-        ];
+    if (alreadyAdded) {
+      return;
+    }
+
+    if (baseRouteParams.intermediates.length >= MAX_ROUTE_STOPS) {
+      console.warn('Maximum route stops reached');
+      return;
+    }
+
+    const nextIntermediates = sortStopsByRouteOrder([
+      ...baseRouteParams.intermediates,
+      {
+        id: place.id,
+        name: place.name,
+        lat: place.lat,
+        lng: place.lng,
+        routeOrderM: place.routeOrderM
+      }
+    ]);
 
     setBuiltRouteParams({
       ...baseRouteParams,
-      intermediates,
+      origin: from,
+      destination: to,
+      mode,
+      intermediates: normalizeRouteStops(nextIntermediates),
       refreshPlaces: false
     });
     setBuildNonce((previous) => previous + 1);
@@ -126,6 +153,31 @@ function App() {
       errorMessage: undefined
     }));
   }, [builtRouteParams, from, mode, to]);
+
+  const handleRemovePlaceFromRoute = useCallback((placeId: string) => {
+    if (!builtRouteParams) return;
+
+    const nextIntermediates = builtRouteParams.intermediates.filter(
+      (point) => point.id !== placeId
+    );
+
+    setBuiltRouteParams({
+      ...builtRouteParams,
+      intermediates: nextIntermediates,
+      refreshPlaces: false
+    });
+
+    setBuildNonce((previous) => previous + 1);
+
+    setRouteInfo((previous) => ({
+      ...previous,
+      status: 'loading',
+      distance: '—',
+      duration: '—',
+      elevation: null,
+      errorMessage: undefined
+    }));
+  }, [builtRouteParams]);
 
   const handleMapPickSetStart = useCallback((point: RouteEndpointPoint) => {
     setStartPoint(point);
@@ -170,6 +222,7 @@ function App() {
           activeTab={activeTab}
           selectedPlace={selectedPlace}
           routeInfo={routeInfo}
+          routeIntermediates={builtRouteParams?.intermediates ?? EMPTY_INTERMEDIATES}
           from={from}
           to={to}
           mapPickMode={mapPickMode}
@@ -180,6 +233,7 @@ function App() {
           onTabChange={setActiveTab}
           onSelectPlace={handleSelectPlace}
           onAddPlaceToRoute={handleAddPlaceToRoute}
+          onRemovePlaceFromRoute={handleRemovePlaceFromRoute}
           onReset={handleReset}
           onMapPickToggle={handleMapPickToggle}
         />

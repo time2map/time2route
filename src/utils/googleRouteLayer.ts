@@ -8,6 +8,18 @@ const activityToTravelMode: Record<RouteActivityMode, 'WALKING' | 'BICYCLING'> =
 let activeRoutePolylines: google.maps.Polyline[] = []
 let routesLibraryPromise: Promise<google.maps.RoutesLibrary> | null = null
 let geometryLibraryPromise: Promise<google.maps.GeometryLibrary> | null = null
+const MAX_ROUTE_STOPS = 10
+
+function isValidRoutePoint(point: { lat: number; lng: number }): boolean {
+  return (
+    Number.isFinite(point.lat) &&
+    Number.isFinite(point.lng) &&
+    point.lat >= -90 &&
+    point.lat <= 90 &&
+    point.lng >= -180 &&
+    point.lng <= 180
+  )
+}
 
 function loadRoutesLibrary() {
   routesLibraryPromise ??= google.maps.importLibrary('routes') as Promise<google.maps.RoutesLibrary>
@@ -47,20 +59,33 @@ export async function buildAndDrawRoute({
   activityMode = 'walk',
   fitBounds = true,
   intermediates = [],
+  optimizeWaypointOrder = false,
 }: BuildRouteParameters): Promise<BuiltRouteResult> {
   const { Route } = await loadRoutesLibrary()
+
+  const routeIntermediates = intermediates
+    .filter(isValidRoutePoint)
+    .slice(0, MAX_ROUTE_STOPS)
+    .map((point): google.maps.routes.Waypoint => ({
+      location: {
+        lat: point.lat,
+        lng: point.lng,
+      },
+    }))
 
   const response = await Route.computeRoutes({
     origin,
     destination,
-    intermediates: intermediates.map((point) => ({
-      location: point,
-    })),
+    intermediates: routeIntermediates.length > 0 ? routeIntermediates : undefined,
+    optimizeWaypointOrder:
+      optimizeWaypointOrder && routeIntermediates.length > 1,
     travelMode: activityToTravelMode[activityMode],
+    polylineQuality: google.maps.routes.PolylineQuality.HIGH_QUALITY,
     fields: [
       'path',
       'distanceMeters',
       'durationMillis',
+      'optimizedIntermediateWaypointIndices',
     ],
   });
 
@@ -84,13 +109,13 @@ export async function buildAndDrawRoute({
 
   const polyline = new google.maps.Polyline({
     path: routePath,
-    map,
     strokeColor: getRouteStrokeColor(activityMode),
     strokeOpacity: 0.95,
     strokeWeight: 6,
   })
 
   clearRouteFromMap()
+  polyline.setMap(map)
   activeRoutePolylines = [polyline]
 
   if (fitBounds) {

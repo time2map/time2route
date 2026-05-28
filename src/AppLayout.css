@@ -26,6 +26,7 @@
   --green-active: #a3d4da;
   --green-text: #1b7a8a;
   --green-bg: #0f2a18;
+  --green-glass: color-mix(in srgb, var(--green) 18%, transparent);
   --green-border: #1a4028;
 
   --red-glass: color-mix(in srgb, var(--red) 12%, transparent);
@@ -1033,6 +1034,20 @@
   white-space: nowrap;
 }
 
+.place-card-v2__on-route {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 1px 7px;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--green);
+  background: var(--green-glass);
+  border-radius: 999px;
+  line-height: 1.6;
+}
+
 .place-card-v2.is-selected .place-card-v2__name {
   font-size: 16px;
   white-space: normal;
@@ -1086,9 +1101,25 @@
 .place-card-v2__actions {
   display: flex;
   flex-direction: row;
+  align-items: center;
+  flex-wrap: wrap;
   gap: 4px;
   margin-top: 4px;
   
+}
+
+.place-card-v2__stop-index {
+  display: inline-block;
+  margin-right: 4px;
+  padding: 1px 7px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--green);
+  background: var(--green-glass);
+  border-radius: 999px;
+  line-height: 1.5;
 }
 
 .place-card-v2.is-selected .place-card-v2__actions {
@@ -1212,7 +1243,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0 20px 12px;
+    padding: 0 20px 4px;
     flex-shrink: 0;
   }
 
@@ -1397,10 +1428,6 @@
     width: 64px;
     height: 64px;
   }
-
-  /* .place-card-v2.is-selected .place-card-v2__thumb {
-    height: 160px;
-  } */
 }
 
 .map-pane {
