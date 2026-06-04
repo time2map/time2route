@@ -1,6 +1,5 @@
 import { ElevationProfileChart } from './ElevationProfileChart';
 import { RouteBadges } from './RouteBadges';
-import { RoutePointsMob } from './RoutePointsMob';
 import { RouteSummary } from './RouteSummary';
 import { RouteSummaryPlaceholder } from './RouteSummaryPlaceholder';
 import { RouteSummarySkeleton } from './RouteSummarySkeleton';
@@ -28,27 +27,32 @@ type RouteOverviewProps = {
   elevationPoints: Array<{
     distanceKm: number;
     elevationM: number;
+    lat?: number;
+    lng?: number;
   }>;
   elevationInsight: string;
+  onElevationPointHover?: (index: number | null) => void;
+  onElevationChartFocusChange?: (focused: boolean) => void;
+  onElevationPointClick?: (index: number) => void;
   onReset?: () => void;
 };
 
 export function RouteOverview({
   variant,
-  from,
-  to,
   mode,
   modeLabel,
   bestForValue,
   placesLabel,
   elevationBadgeLabel,
-  bestForLabel,
   showRouteSkeleton,
   showRouteError,
   errorMessage,
   routeInfo,
   elevationPoints,
   elevationInsight,
+  onElevationPointHover,
+  onElevationChartFocusChange,
+  onElevationPointClick,
   onReset
 }: Readonly<RouteOverviewProps>) {
   if (showRouteSkeleton) {
@@ -66,28 +70,30 @@ export function RouteOverview({
 
   return (
     <>
-      {variant === 'mobile' && <RoutePointsMob from={from} to={to} />}
+      {/* {variant === 'mobile' && <RoutePointsMob from={from} to={to} />} */}
 
       <RouteSummary routeInfo={routeInfo} modeLabel={modeLabel} />
 
       <RouteBadges
-        mode={mode}
         placesLabel={placesLabel}
         elevationBadgeLabel={elevationBadgeLabel}
-        bestForLabel={bestForLabel}
       />
 
       <div className="overview-block">
         <ElevationProfileChart
           compact
+          mode={mode}
           activityLabel={bestForValue}
           points={elevationPoints.length > 1 ? elevationPoints : undefined}
           chartHeight={160}
+          onPointHover={onElevationPointHover}
+          onChartFocusChange={onElevationChartFocusChange}
+          onPointClick={onElevationPointClick}
         />
         <p className="elevation-insight">{elevationInsight}</p>
       </div>
 
-      {variant === 'mobile' && onReset && <MobileResetButton onReset={onReset} />}
+      {/* { onReset && <MobileResetButton onReset={() => console.log('reset')} />} */}
     </>
   );
 }

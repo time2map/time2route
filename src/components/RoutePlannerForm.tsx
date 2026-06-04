@@ -3,18 +3,17 @@ import type { ActivityMode } from '../utils/types';
 import type { PlaceAutocompleteSelection } from '../api/placeAutocomplete';
 import type { LocationSuggestion } from '../utils/locationSuggestions';
 import { EndPinIcon } from './icons/EndPinIcon';
-import { MapPickIcon } from './icons/MapPickIcon';
 import { StartPinIcon } from './icons/StartPinIcon';
 import { ModeIcon } from './ModeIcon';
 import { LocationInputWithDropdown } from './LocationInputWithDropdown';
+import { RoutePoints } from './RoutePoints';
+import type { InterestingPlace, LatLng, RouteIntermediatePoint } from '../utils/types';
 
 type RoutePlannerFormProps = {
   variant: 'desktop' | 'mobile';
   from: string;
   to: string;
   mode: ActivityMode;
-  mapPickMode: boolean;
-  mapPickTarget: 'start' | 'destination' | null;
   map?: google.maps.Map | null;
   fromSuggestions?: LocationSuggestion[];
   toSuggestions?: LocationSuggestion[];
@@ -24,10 +23,18 @@ type RoutePlannerFormProps = {
   onToPlaceSelect?: (place: PlaceAutocompleteSelection) => void;
   onModeChange: (value: ActivityMode) => void;
   onBuildRoute: () => void;
-  onMapPickToggle: () => void;
   onMapPickFocusTarget: (target: 'start' | 'destination') => void;
   onMapPickCancel: () => void;
   onSwapLocations: () => void;
+  routeBuilt?: boolean;
+  routeStops?: RouteIntermediatePoint[];
+  routePlaces?: InterestingPlace[];
+  alongRoutePlaceIds?: ReadonlySet<string>;
+  routePath?: LatLng[];
+  onRemoveStop?: (placeId: string) => void;
+  onStopHover?: (placeId: string | null) => void;
+  hoveredStopId?: string | null;
+  onPlanNewRoute?: () => void;
 };
 
 type ActiveDropdown = 'from' | 'to' | null;
@@ -37,8 +44,6 @@ export function RoutePlannerForm({
   from,
   to,
   mode,
-  mapPickMode,
-  mapPickTarget,
   map = null,
   fromSuggestions = [],
   toSuggestions = [],
@@ -48,25 +53,23 @@ export function RoutePlannerForm({
   onToPlaceSelect,
   onModeChange,
   onBuildRoute,
-  onMapPickToggle,
   onMapPickFocusTarget,
   onMapPickCancel,
-  onSwapLocations
+  onSwapLocations,
+  routeBuilt = false,
+  routeStops = [],
+  routePlaces = [],
+  alongRoutePlaceIds,
+  routePath,
+  onRemoveStop,
+  onStopHover,
+  hoveredStopId = null
 }: Readonly<RoutePlannerFormProps>) {
   const isMobile = variant === 'mobile';
   const fromInputId = isMobile ? 'fromInputMob' : 'fromInput';
   const toInputId = isMobile ? 'toInputMob' : 'toInput';
   const [activeDropdown, setActiveDropdown] = useState<ActiveDropdown>(null);
 
-  let mapPickLabel = 'Set a point on the map';
-  if (mapPickMode) {
-    mapPickLabel = 'Picking from map…';
-    if (mapPickTarget === 'start') {
-      mapPickLabel = 'Pick start point on map…';
-    } else if (mapPickTarget === 'destination') {
-      mapPickLabel = 'Pick destination on map…';
-    }
-  }
   const isBuildRouteDisabled = !from.trim() || !to.trim();
 
   const fromField = (
@@ -147,7 +150,23 @@ export function RoutePlannerForm({
     />
   );
 
-  const content = (
+  const routePointsView = (
+    <>
+      <RoutePoints
+        from={from}
+        to={to}
+        stops={routeStops}
+        routePlaces={routePlaces}
+        alongRoutePlaceIds={alongRoutePlaceIds}
+        routePath={routePath}
+        onRemoveStop={onRemoveStop}
+        onStopHover={onStopHover}
+        hoveredStopId={hoveredStopId}
+      />
+    </>
+  );
+
+  const plannerView = (
     <>
       {isMobile ? (
         <div className="sidebar-mobile-location-group">
@@ -160,14 +179,6 @@ export function RoutePlannerForm({
           {toField}
         </div>
       )}
-
-      <button
-        className={`map-pick-hint${mapPickMode ? ' active' : ''}`}
-        onClick={onMapPickToggle}
-        type="button">
-        <MapPickIcon />
-        <span>{mapPickLabel}</span>
-      </button>
 
       <div className="segmented-control">
         {(['walk', 'bike'] as const).map((item) => (
@@ -193,13 +204,15 @@ export function RoutePlannerForm({
     </>
   );
 
+  const content = routeBuilt ? routePointsView : plannerView;
+
   if (isMobile) {
     return <div className="sidebar-mobile-form">{content}</div>;
   }
 
   return (
     <div className="sidebar-section">
-      <div className="sidebar-title">Plan your route</div>
+      {!routeBuilt && <div className="sidebar-title">Plan your route</div>}
       {content}
     </div>
   );

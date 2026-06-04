@@ -1,10 +1,13 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import type { PlaceAutocompleteSelection } from './api/placeAutocomplete';
 import './AppLayout.css';
 import './AppLayout.mobile.css';
 import { MapPane } from './components/MapPane';
 import { Sidebar } from './components/Sidebar';
-import type { ActivityMode, ElevationStats, InterestingPlace, RouteIntermediatePoint } from './utils/types';
+import { useCustomRouteStopDetails } from './hooks/useCustomRouteStopDetails';
+import { getDistanceAlongPolylineMeters } from './utils/routePolyline';
+import { sortRouteStopsByPath } from './utils/routeStopOrder';
+import type { ActivityMode, ElevationStats, InterestingPlace, LatLng, RouteIntermediatePoint } from './utils/types';
 
 type RouteInfo = {
   status: 'idle' | 'loading' | 'ready' | 'error';
@@ -12,6 +15,7 @@ type RouteInfo = {
   duration: string;
   elevation: ElevationStats | null;
   interestingPlaces: InterestingPlace[];
+  routePath: LatLng[];
   errorMessage?: string;
 };
 
@@ -30,14 +34,6 @@ function normalizeRouteStops(stops: RouteIntermediatePoint[]) {
   return stops.slice(0, MAX_ROUTE_STOPS);
 }
 
-function sortStopsByRouteOrder(stops: RouteIntermediatePoint[]) {
-  const allHaveOrder = stops.every((stop) => typeof stop.routeOrderM === 'number');
-  if (!allHaveOrder) {
-    return stops;
-  }
-
-  return [...stops].sort((a, b) => (a.routeOrderM ?? 0) - (b.routeOrderM ?? 0));
-}
 
 function App() {
   const [routeBuilt, setRouteBuilt] = useState(false);
@@ -50,8 +46,8 @@ function App() {
     intermediates: RouteIntermediatePoint[];
     refreshPlaces: boolean;
   } | null>(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'places'>('overview');
   const [selectedPlace, setSelectedPlace] = useState<string | null>(null);
+  const [hoveredPlaceId, setHoveredPlaceId] = useState<string | null>(null);
   const [from, setFrom] = useState('Amsterdam Centraal');
   const [to, setTo] = useState('Vondelpark, Amsterdam');
   const [startPoint, setStartPoint] = useState<RouteEndpointPoint | null>(null);
@@ -65,8 +61,17 @@ function App() {
     distance: '—',
     duration: '—',
     elevation: null,
-    interestingPlaces: []
+    interestingPlaces: [],
+    routePath: []
   });
+  const [highlightedRouteDistanceKm, setHighlightedRouteDistanceKm] = useState<number | null>(
+    null
+  );
+  const [isElevationChartFocused, setIsElevationChartFocused] = useState(false);
+  const [routeChartZoomTarget, setRouteChartZoomTarget] = useState<{
+    distanceKm: number;
+    key: number;
+  } | null>(null);
 
   const handleBuildRoute = useCallback(() => {
     setBuiltRouteParams({
@@ -79,13 +84,16 @@ function App() {
     setBuildNonce((previous) => previous + 1);
     setRouteBuilt(true);
     setEndpointSelectionPending(false);
-    setActiveTab('overview');
+    setHighlightedRouteDistanceKm(null);
+    setIsElevationChartFocused(false);
+    setRouteChartZoomTarget(null);
     setRouteInfo({
       status: 'loading',
       distance: '—',
       duration: '—',
       elevation: null,
-      interestingPlaces: []
+      interestingPlaces: [],
+      routePath: []
     });
   }, [from, to, mode]);
 
@@ -93,7 +101,7 @@ function App() {
     setRouteBuilt(false);
     setBuiltRouteParams(null);
     setSelectedPlace(null);
-    setActiveTab('overview');
+    setHoveredPlaceId(null);
     setFrom('');
     setTo('');
     setStartPoint(null);
@@ -101,18 +109,60 @@ function App() {
     setMapPickMode(false);
     setMapPickTarget(null);
     setEndpointSelectionPending(true);
+    setHighlightedRouteDistanceKm(null);
+    setIsElevationChartFocused(false);
+    setRouteChartZoomTarget(null);
     setRouteInfo({
       status: 'idle',
       distance: '—',
       duration: '—',
       elevation: null,
-      interestingPlaces: []
+      interestingPlaces: [],
+      routePath: []
     });
   }, []);
 
-  const handleSelectPlace = useCallback((placeId: string) => {
+  const elevationProfileRef = useRef(routeInfo.elevation?.profile);
+  elevationProfileRef.current = routeInfo.elevation?.profile;
+  const handleElevationChartFocusChange = useCallback((focused: boolean) => {
+    setIsElevationChartFocused(focused);
+    if (!focused) {
+      setHighlightedRouteDistanceKm(null);
+    }
+  }, []);
+
+  const handleElevationPointClick = useCallback((index: number) => {
+    const distanceKm = elevationProfileRef.current?.[index]?.distanceKm;
+    if (typeof distanceKm !== 'number' || !Number.isFinite(distanceKm)) {
+      return;
+    }
+
+    setIsElevationChartFocused(true);
+    setHighlightedRouteDistanceKm(distanceKm);
+    setRouteChartZoomTarget({ distanceKm, key: Date.now() });
+  }, []);
+
+  const handleElevationPointHover = useCallback((index: number | null) => {
+    setHighlightedRouteDistanceKm((previous) => {
+      if (index === null) {
+        return previous === null ? previous : null;
+      }
+
+      const distanceKm = elevationProfileRef.current?.[index]?.distanceKm;
+      if (typeof distanceKm !== 'number' || !Number.isFinite(distanceKm)) {
+        return previous === null ? previous : null;
+      }
+
+      return previous === distanceKm ? previous : distanceKm;
+    });
+  }, []);
+
+  const handleSelectPlace = useCallback((placeId: string | null) => {
     setSelectedPlace(placeId);
-    setActiveTab('places');
+  }, []);
+
+  const handleHoveredPlaceChange = useCallback((placeId: string | null) => {
+    setHoveredPlaceId(placeId);
   }, []);
 
   const handleAddPlaceToRoute = useCallback((place: InterestingPlace) => {
@@ -138,16 +188,26 @@ function App() {
       return;
     }
 
-    const nextIntermediates = sortStopsByRouteOrder([
-      ...baseRouteParams.intermediates,
-      {
-        id: place.id,
-        name: place.name,
-        lat: place.lat,
-        lng: place.lng,
-        routeOrderM: place.routeOrderM
-      }
-    ]);
+    const routePath = routeInfo.routePath;
+    const routeOrderM =
+      place.routeOrderM ??
+      (routePath.length >= 2
+        ? Math.round(getDistanceAlongPolylineMeters({ lat: place.lat, lng: place.lng }, routePath))
+        : undefined);
+
+    const nextIntermediates = sortRouteStopsByPath(
+      [
+        ...baseRouteParams.intermediates,
+        {
+          id: place.id,
+          name: place.name,
+          lat: place.lat,
+          lng: place.lng,
+          routeOrderM
+        }
+      ],
+      routePath
+    );
 
     setBuiltRouteParams({
       ...baseRouteParams,
@@ -167,7 +227,7 @@ function App() {
       elevation: null,
       errorMessage: undefined
     }));
-  }, [builtRouteParams, from, mode, to]);
+  }, [builtRouteParams, from, mode, routeInfo.routePath, to]);
 
   const handleRemovePlaceFromRoute = useCallback((placeId: string) => {
     if (!builtRouteParams) return;
@@ -261,20 +321,30 @@ function App() {
     setMapPickTarget(null);
   }, []);
 
-  const handleMapPickToggle = useCallback(() => {
-    setMapPickMode((prev) => {
-      const next = !prev;
-      if (!next) {
-        setMapPickTarget(null);
-      }
-      return next;
-    });
-  }, []);
-
   const handleMapPickFocusTarget = useCallback((target: Exclude<MapPickTarget, null>) => {
     setMapPickTarget(target);
     setMapPickMode(true);
   }, []);
+
+  const mapPickDirectFillTarget = useMemo((): MapPickTarget => {
+    if (routeBuilt) return null;
+    if (mapPickTarget === 'start' && !from.trim()) return 'start';
+    if (mapPickTarget === 'destination' && !to.trim()) return 'destination';
+    return null;
+  }, [from, mapPickTarget, routeBuilt, to]);
+
+  const routeIntermediates = builtRouteParams?.intermediates ?? EMPTY_INTERMEDIATES;
+  const { customStopPlaces } = useCustomRouteStopDetails(
+    routeIntermediates,
+    routeInfo.interestingPlaces
+  );
+  const routePlacesForStops = useMemo(() => {
+    const byId = new Map(routeInfo.interestingPlaces.map((place) => [place.id, place]));
+    for (const place of customStopPlaces) {
+      byId.set(place.id, place);
+    }
+    return [...byId.values()];
+  }, [customStopPlaces, routeInfo.interestingPlaces]);
 
   return (
     <main className={`app-shell ${routeBuilt ? 'app-state-route' : 'app-state-empty'}`}>
@@ -282,14 +352,12 @@ function App() {
         <Sidebar
           routeBuilt={routeBuilt}
           mode={mode}
-          activeTab={activeTab}
           selectedPlace={selectedPlace}
           routeInfo={routeInfo}
-          routeIntermediates={builtRouteParams?.intermediates ?? EMPTY_INTERMEDIATES}
+          routeIntermediates={routeIntermediates}
+          routePlacesForStops={routePlacesForStops}
           from={from}
           to={to}
-          mapPickMode={mapPickMode}
-          mapPickTarget={mapPickTarget}
           map={mapInstance}
           onFromChange={handleFromChange}
           onToChange={handleToChange}
@@ -298,14 +366,15 @@ function App() {
           onSwapLocations={handleSwapLocations}
           onModeChange={setMode}
           onBuildRoute={handleBuildRoute}
-          onTabChange={setActiveTab}
-          onSelectPlace={handleSelectPlace}
-          onAddPlaceToRoute={handleAddPlaceToRoute}
-          onRemovePlaceFromRoute={handleRemovePlaceFromRoute}
           onReset={handleReset}
-          onMapPickToggle={handleMapPickToggle}
           onMapPickFocusTarget={handleMapPickFocusTarget}
           onMapPickCancel={handleMapPickCancel}
+          onRemoveStop={handleRemovePlaceFromRoute}
+          onStopHover={handleHoveredPlaceChange}
+          hoveredStopId={hoveredPlaceId}
+          onElevationPointHover={handleElevationPointHover}
+          onElevationChartFocusChange={handleElevationChartFocusChange}
+          onElevationPointClick={handleElevationPointClick}
         />
         <MapPane
           routeBuilt={routeBuilt}
@@ -318,17 +387,25 @@ function App() {
           intermediates={builtRouteParams?.intermediates ?? EMPTY_INTERMEDIATES}
           refreshPlaces={builtRouteParams?.refreshPlaces ?? true}
           routePlaces={routeInfo.interestingPlaces}
+          customStopPlaces={customStopPlaces}
           selectedPlace={selectedPlace}
+          hoveredPlaceId={hoveredPlaceId}
+          onHoveredPlaceChange={handleHoveredPlaceChange}
           mapPickMode={mapPickMode}
-          mapPickTarget={mapPickTarget}
+          mapPickDirectFillTarget={mapPickDirectFillTarget}
           startPoint={startPoint}
           destinationPoint={destinationPoint}
-          onSelectPlace={handleSelectPlace}
           onRouteInfoChange={setRouteInfo}
           onMapPickSetStart={handleMapPickSetStart}
           onMapPickSetDestination={handleMapPickSetDestination}
           onMapPickCancel={handleMapPickCancel}
           onMapReady={handleMapReady}
+          onSelectPlace={handleSelectPlace}
+          onAddPlaceToRoute={handleAddPlaceToRoute}
+          onRemovePlaceFromRoute={handleRemovePlaceFromRoute}
+          highlightedRouteDistanceKm={highlightedRouteDistanceKm}
+          elevationChartFocused={isElevationChartFocused}
+          routeChartZoomTarget={routeChartZoomTarget}
         />
       </section>
     </main>

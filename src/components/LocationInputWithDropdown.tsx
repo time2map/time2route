@@ -63,14 +63,17 @@ export function LocationInputWithDropdown({
   });
 
   return (
-    <div className={wrapperClassName} data-location-field={inputId}>
-      {pinIcon}
+    <div
+      className={wrapperClassName}
+      data-location-field={inputId}>
+      <div className="pin-left">{pinIcon}</div>
       <input
         ref={inputRef}
         id={inputId}
         value={value}
         onChange={(event) => inputProps.onChange(event.target.value)}
         onFocus={inputProps.onFocus}
+        onPointerDown={inputProps.onPointerDown}
         onBlur={inputProps.onBlur}
         onKeyDown={inputProps.onKeyDown}
         placeholder={placeholder}

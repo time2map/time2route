@@ -1,47 +1,30 @@
 import type { ReactNode } from 'react';
 
-type SidebarTab = 'overview' | 'places';
-
 type DesktopRouteSectionProps = {
-  activeTab: SidebarTab;
-  onTabChange: (tab: SidebarTab) => void;
   overview: ReactNode;
-  places: ReactNode;
+  onReset?: () => void;
 };
 
-export function DesktopRouteSection({
-  activeTab,
-  onTabChange,
-  overview,
-  places
-}: Readonly<DesktopRouteSectionProps>) {
+export function DesktopRouteSection({ overview, onReset }: Readonly<DesktopRouteSectionProps>) {
   return (
     <div className="sidebar-section state-route">
-      <div className="route-header">
+      {/* <div className="route-header">
         <span className="sidebar-title">Shortest route</span>
-      </div>
-
-      <div className="sidebar-tabs">
-        <button
-          className={`sidebar-tab ${activeTab === 'overview' ? 'active' : ''}`}
-          onClick={() => onTabChange('overview')}
-          type="button">
-          Overview
-        </button>
-        <button
-          className={`sidebar-tab ${activeTab === 'places' ? 'active' : ''}`}
-          onClick={() => onTabChange('places')}
-          type="button">
-          Places
-        </button>
-      </div>
+      </div> */}
 
       <div className="sidebar-scroll">
-        {activeTab === 'overview' ? (
-          <div className="sidebar-tab-content active">{overview}</div>
-        ) : (
-          <div className="sidebar-tab-content active">{places}</div>
-        )}
+        <div className="sidebar-tab-content active">
+          {overview}
+
+          {onReset && (
+            <button
+              className="cta-btn"
+              type="button"
+              onClick={onReset}>
+              Plan new route
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

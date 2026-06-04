@@ -8,6 +8,14 @@ export type PlaceAutocompleteSelection = {
   address?: string;
 };
 
+export type MapPickPoint = {
+  lat: number;
+  lng: number;
+  name: string;
+  address: string;
+  placeId?: string;
+};
+
 type PlacesAutocompleteLibrary = {
   AutocompleteSuggestion: {
     fetchAutocompleteSuggestions: (request: {
@@ -135,6 +143,19 @@ export async function resolvePlaceById(placeId: string): Promise<PlaceAutocomple
   };
 
   return resolvePlaceDetails(new Place({ id: placeId }), placeId);
+}
+
+export async function resolveMapPickFromPlaceId(placeId: string): Promise<MapPickPoint> {
+  const place = await resolvePlaceById(placeId);
+  const name = place.name;
+  const address = place.address ?? name;
+  return {
+    lat: place.lat,
+    lng: place.lng,
+    name,
+    address,
+    placeId: place.id
+  };
 }
 
 async function resolvePlaceDetails(

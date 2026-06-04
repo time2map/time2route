@@ -28,11 +28,6 @@ export function getSidebarViewModel({
     bestForValue = 'Walking';
   }
 
-  const sortedInterestingPlaces = [...routeInfo.interestingPlaces].sort(
-    (firstPlace, secondPlace) =>
-      (secondPlace.rating ?? Number.NEGATIVE_INFINITY) - (firstPlace.rating ?? Number.NEGATIVE_INFINITY)
-  );
-
   const placesCount = routeInfo.interestingPlaces.length;
   const placesLabel = `${placesCount} interesting place${placesCount === 1 ? '' : 's'}`;
   const elevationBadgeLabel = routeInfo.elevation
@@ -42,18 +37,12 @@ export function getSidebarViewModel({
   const showRouteSkeleton =
     routeBuilt && Boolean(from.trim()) && Boolean(to.trim()) && routeInfo.status === 'loading';
   const showRouteError = routeInfo.status === 'error';
-  const showPlacesPlaceholder =
-    showRouteError || (routeInfo.status === 'ready' && sortedInterestingPlaces.length === 0);
-  const placesPlaceholderMessage = showRouteError
-    ? (routeInfo.errorMessage ?? 'Route not found')
-    : 'No places found';
-  const placesPlaceholderText = showRouteError
-    ? 'Try another start point or destination.'
-    : 'Try another route to discover places along the way.';
   const elevationPoints =
     routeInfo.elevation?.profile.map((point) => ({
       distanceKm: point.distanceKm,
-      elevationM: point.elevationM
+      elevationM: point.elevationM,
+      lat: point.lat,
+      lng: point.lng
     })) ?? [];
   const elevationInsight = routeInfo.elevation
     ? getElevationInsight(routeInfo.elevation)
@@ -71,12 +60,8 @@ export function getSidebarViewModel({
     bestForLabel,
     showRouteSkeleton,
     showRouteError,
-    showPlacesPlaceholder,
-    placesPlaceholderMessage,
-    placesPlaceholderText,
     elevationPoints,
     elevationInsight,
-    sheetTitle,
-    sortedInterestingPlaces
+    sheetTitle
   };
 }

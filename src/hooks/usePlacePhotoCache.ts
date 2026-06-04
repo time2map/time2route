@@ -1,9 +1,40 @@
 import { useEffect, useRef, useState } from 'react';
 import { getGooglePlacePhotoUrl } from '../api/googlePlacePhotos';
 import type { InterestingPlace } from '../utils/types';
-import type { PlacePhotoState } from '../components/PlaceCard';
 
-export function usePlacePhotoCache(selectedPlace: string | null, places: InterestingPlace[]) {
+export type PlacePhotoState =
+  | { status: 'loading' }
+  | { status: 'loaded'; photoUrl: string }
+  | { status: 'empty' }
+  | { status: 'error' };
+
+export function getPlacePhotoViewState(
+  cache: Record<string, PlacePhotoState>,
+  placeId: string
+): { url?: string; loading?: boolean } {
+  const state = cache[placeId];
+  if (!state) {
+    return {};
+  }
+  if (state.status === 'loading') {
+    return { loading: true };
+  }
+  if (state.status === 'loaded') {
+    return { url: state.photoUrl, loading: false };
+  }
+  return { loading: false };
+}
+
+type UsePlacePhotoCacheOptions = {
+  maxWidthPx?: number;
+};
+
+export function usePlacePhotoCache(
+  activePlaceId: string | null,
+  places: InterestingPlace[],
+  options?: UsePlacePhotoCacheOptions
+) {
+  const maxWidthPx = options?.maxWidthPx ?? 520;
   const [placePhotoCache, setPlacePhotoCache] = useState<Record<string, PlacePhotoState>>({});
   const placePhotoCacheRef = useRef<Record<string, PlacePhotoState>>({});
 
@@ -12,14 +43,17 @@ export function usePlacePhotoCache(selectedPlace: string | null, places: Interes
   }, [placePhotoCache]);
 
   useEffect(() => {
-    if (!selectedPlace) return;
+    if (!activePlaceId) return;
 
-    const activePlace = places.find((place) => place.id === selectedPlace);
+    const activePlace = places.find((place) => place.id === activePlaceId);
     if (!activePlace) return;
 
-    if (placePhotoCacheRef.current[activePlace.id]) return;
-
     const photoName = activePlace.photos?.[0]?.name;
+    const cached = placePhotoCacheRef.current[activePlace.id];
+    if (cached?.status === 'loading' || cached?.status === 'loaded') {
+      return;
+    }
+
     const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
     let cancelled = false;
 
@@ -41,7 +75,9 @@ export function usePlacePhotoCache(selectedPlace: string | null, places: Interes
       if (cancelled) return;
 
       if (!photoName) {
-        savePhotoState({ status: 'empty' });
+        if (cached?.status !== 'empty' && cached?.status !== 'error') {
+          savePhotoState({ status: 'empty' });
+        }
         return;
       }
 
@@ -56,7 +92,7 @@ export function usePlacePhotoCache(selectedPlace: string | null, places: Interes
         const photoUrl = await getGooglePlacePhotoUrl({
           photoName,
           apiKey,
-          maxWidthPx: 360
+          maxWidthPx
         });
 
         if (cancelled) return;
@@ -72,7 +108,7 @@ export function usePlacePhotoCache(selectedPlace: string | null, places: Interes
     return () => {
       cancelled = true;
     };
-  }, [selectedPlace, places]);
+  }, [activePlaceId, maxWidthPx, places]);
 
   return placePhotoCache;
 }

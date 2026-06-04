@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react';
-import { DifficultyIcon } from './icons/DifficultyIcon';
 import { DistanceIcon } from './icons/DistanceIcon';
 import { ElevationIcon } from './icons/ElevationIcon';
 import { TimeIcon } from './icons/TimeIcon';
@@ -65,11 +64,11 @@ export function RouteSummary({ routeInfo, modeLabel }: Readonly<RouteSummaryProp
         icon={<ElevationIcon />}
       />
 
-      <StatCard
+      {/* <StatCard
         label="Difficulty"
         value={routeInfo.elevation ? routeInfo.elevation.difficulty : '—'}
         icon={<DifficultyIcon />}
-      />
+      /> */}
     </div>
   );
 }

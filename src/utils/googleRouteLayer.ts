@@ -41,7 +41,7 @@ function fitMapToPath(map: google.maps.Map, path: google.maps.LatLngLiteral[]) {
   map.fitBounds(bounds)
 }
 
-function getRouteStrokeColor(activityMode: RouteActivityMode) {
+export function getRouteStrokeColor(activityMode: RouteActivityMode) {
   return activityMode === 'bike' ? '#5aaab8' : '#e06b65'
 }
 

@@ -1,7 +1,12 @@
 import type { ElevationProfilePoint, ElevationStats, RoutePathPoint } from "./types"
+import { pointAlongPolylineAtDistanceMeters, polylineLengthMeters } from "./routePolyline"
 
 let elevationServicePromise: Promise<google.maps.ElevationService> | null = null
 const elevationStatsCache = new Map<string, ElevationStats>()
+/** Bump when chart profile sampling changes so cached routes refresh. */
+const ELEVATION_PROFILE_CACHE_VERSION = 4
+/** Google Elevation path limit is 512 vertices; long polylines also break URL length limits. */
+const ELEVATION_PATH_VERTEX_LIMITS = [128, 64, 32] as const
 
 type ElevationRequestOptions = {
   samples?: number
@@ -19,7 +24,7 @@ export async function getRouteElevationStats(
 
   const normalizedPath = routePath.map(toLatLngLiteral)
   const distanceMeters =
-    options.distanceMeters ?? estimatePathDistanceMeters(normalizedPath)
+    options.distanceMeters ?? polylineLengthMeters(normalizedPath)
   const safeSamples = clampElevationSamples(
     options.samples ?? chooseElevationSamples(distanceMeters),
   )
@@ -30,21 +35,22 @@ export async function getRouteElevationStats(
   }
 
   const elevationService = await getElevationService()
-  const response = await elevationService.getElevationAlongPath({
-    path: normalizedPath,
-    samples: safeSamples,
-  })
+  const response = await requestElevationAlongPath(
+    elevationService,
+    normalizedPath,
+    safeSamples,
+  )
 
   const results = response.results
   if (!results || results.length < 2) {
     throw new Error('Elevation data is empty')
   }
 
-  const fullProfile = buildElevationProfile(results)
+  const fullProfile = buildElevationProfile(results, normalizedPath)
   const chartProfile = simplifyElevationProfile(fullProfile, {
-    minDistanceKm: 0.08,
-    elevationDeltaM: 6,
-    maxPoints: 10,
+    minDistanceKm: 0.04,
+    elevationDeltaM: 4,
+    maxPoints: 48,
   })
   const stats = calculateElevationStats(fullProfile, chartProfile)
   elevationStatsCache.set(cacheKey, stats)
@@ -94,6 +100,60 @@ function clampElevationSamples(samples: number): number {
   return clamp(Math.round(samples), 2, 512)
 }
 
+function buildElevationRequestPath(
+  path: google.maps.LatLngLiteral[],
+  maxVertices: number,
+): google.maps.LatLngLiteral[] {
+  if (path.length <= maxVertices) {
+    return path
+  }
+
+  const totalMeters = polylineLengthMeters(path)
+  if (totalMeters <= 0 || path.length < 2) {
+    return path
+  }
+
+  const vertexCount = Math.min(Math.max(maxVertices, 2), 512)
+  const lastIndex = vertexCount - 1
+
+  return Array.from({ length: vertexCount }, (_, index) =>
+    pointAlongPolylineAtDistanceMeters(path, (index / lastIndex) * totalMeters),
+  )
+}
+
+function isElevationInvalidRequestError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error)
+  return message.includes('INVALID_REQUEST') || message.includes('414')
+}
+
+async function requestElevationAlongPath(
+  elevationService: google.maps.ElevationService,
+  fullPath: google.maps.LatLngLiteral[],
+  samples: number,
+) {
+  let lastError: unknown = null
+
+  for (const maxVertices of ELEVATION_PATH_VERTEX_LIMITS) {
+    const requestPath = buildElevationRequestPath(fullPath, maxVertices)
+
+    try {
+      return await elevationService.getElevationAlongPath({
+        path: requestPath,
+        samples,
+      })
+    } catch (error: unknown) {
+      lastError = error
+      if (!isElevationInvalidRequestError(error)) {
+        throw error
+      }
+    }
+  }
+
+  throw lastError instanceof Error
+    ? lastError
+    : new Error('Elevation along path request failed')
+}
+
 function chooseElevationSamples(distanceMeters: number): number {
   const km = Math.max(distanceMeters, 0) / 1000
 
@@ -109,54 +169,30 @@ function getElevationCacheKey(
   path: google.maps.LatLngLiteral[],
 ): string {
   if (encodedPolyline) {
-    return `${encodedPolyline}:${samples}`
+    return `v${ELEVATION_PROFILE_CACHE_VERSION}:${encodedPolyline}:${samples}`
   }
 
   const first = path[0]
   const last = path.at(-1)
-  return `${first?.lat ?? 0},${first?.lng ?? 0}:${last?.lat ?? 0},${last?.lng ?? 0}:${path.length}:${samples}`
-}
-
-function estimatePathDistanceMeters(path: google.maps.LatLngLiteral[]): number {
-  if (path.length < 2) return 0
-
-  let distanceMeters = 0
-  for (let i = 1; i < path.length; i += 1) {
-    distanceMeters += haversineDistanceMeters(path[i - 1], path[i])
-  }
-  return distanceMeters
+  return `v${ELEVATION_PROFILE_CACHE_VERSION}:${first?.lat ?? 0},${first?.lng ?? 0}:${last?.lat ?? 0},${last?.lng ?? 0}:${path.length}:${samples}`
 }
 
 function buildElevationProfile(
   results: google.maps.ElevationResult[],
+  routePath: google.maps.LatLngLiteral[],
 ): ElevationProfilePoint[] {
-  let distanceMeters = 0
+  const totalRouteMeters = polylineLengthMeters(routePath)
+  const lastSampleIndex = Math.max(results.length - 1, 1)
 
   return results.map((result, index) => {
-    const currentLocation = result.location
-    if (!currentLocation) {
-      throw new Error('Elevation result location is missing')
-    }
-
-    const current = {
-      lat: currentLocation.lat(),
-      lng: currentLocation.lng(),
-    }
-
-    if (index > 0) {
-      const prevLocation = results[index - 1].location
-      if (!prevLocation) {
-        throw new Error('Previous elevation result location is missing')
-      }
-      const prev = { lat: prevLocation.lat(), lng: prevLocation.lng() }
-      distanceMeters += haversineDistanceMeters(prev, current)
-    }
+    const distanceMeters = (index / lastSampleIndex) * totalRouteMeters
+    const location = pointAlongPolylineAtDistanceMeters(routePath, distanceMeters)
 
     return {
       distanceKm: round(distanceMeters / 1000, 3),
       elevationM: round(result.elevation, 1),
-      lat: current.lat,
-      lng: current.lng,
+      lat: location.lat,
+      lng: location.lng,
       resolutionM: result.resolution,
     }
   })
@@ -289,29 +325,6 @@ function getDifficulty(
   if (totalAscentM < 50 && ascentPerKm < 15) return 'Easy'
   if (totalAscentM < 150 && ascentPerKm < 35) return 'Moderate'
   return 'Challenging'
-}
-
-function haversineDistanceMeters(
-  a: google.maps.LatLngLiteral,
-  b: google.maps.LatLngLiteral,
-): number {
-  const earthRadiusM = 6371000
-  const lat1 = toRadians(a.lat)
-  const lat2 = toRadians(b.lat)
-  const deltaLat = toRadians(b.lat - a.lat)
-  const deltaLng = toRadians(b.lng - a.lng)
-
-  const sinLat = Math.sin(deltaLat / 2)
-  const sinLng = Math.sin(deltaLng / 2)
-  const h =
-    sinLat * sinLat + Math.cos(lat1) * Math.cos(lat2) * sinLng * sinLng
-  const c = 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h))
-
-  return earthRadiusM * c
-}
-
-function toRadians(value: number): number {
-  return (value * Math.PI) / 180
 }
 
 function clamp(value: number, min: number, max: number): number {

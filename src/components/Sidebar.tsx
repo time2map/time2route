@@ -1,22 +1,16 @@
-import { useState } from 'react';
-import { usePlacePhotoCache } from '../hooks/usePlacePhotoCache';
+import { useMemo, useState } from 'react';
 import { getSidebarViewModel } from '../utils/getSidebarViewModel';
-import { getGoogleMapsPlaceUrl } from '../utils/googleMapsPlaceUrl';
 import type { ActivityMode, ElevationStats, InterestingPlace } from '../utils/types';
 import { DesktopRouteSection } from './DesktopRouteSection';
 import { MobileRouteSheet } from './MobileRouteSheet';
-import { PlacesPanel } from './PlacesPanel';
 import { RouteOverview } from './RouteOverview';
 import { RoutePlannerForm } from './RoutePlannerForm';
 import { SidebarLogo } from './SidebarLogo';
 import type { PlaceAutocompleteSelection } from '../api/placeAutocomplete';
 
-type SidebarTab = 'overview' | 'places';
-
 type SidebarProps = {
   routeBuilt: boolean;
   mode: ActivityMode;
-  activeTab: SidebarTab;
   selectedPlace: string | null;
   routeInfo: {
     status: 'idle' | 'loading' | 'ready' | 'error';
@@ -24,13 +18,13 @@ type SidebarProps = {
     duration: string;
     elevation: ElevationStats | null;
     interestingPlaces: InterestingPlace[];
+    routePath: Array<{ lat: number; lng: number }>;
     errorMessage?: string;
   };
   routeIntermediates: Array<{ id: string; lat: number; lng: number }>;
+  routePlacesForStops: InterestingPlace[];
   from: string;
   to: string;
-  mapPickMode: boolean;
-  mapPickTarget: 'start' | 'destination' | null;
   map?: google.maps.Map | null;
   onFromChange: (value: string) => void;
   onToChange: (value: string) => void;
@@ -39,28 +33,27 @@ type SidebarProps = {
   onSwapLocations: () => void;
   onModeChange: (value: ActivityMode) => void;
   onBuildRoute: () => void;
-  onTabChange: (tab: SidebarTab) => void;
-  onSelectPlace: (placeId: string) => void;
-  onAddPlaceToRoute: (place: InterestingPlace) => void;
-  onRemovePlaceFromRoute: (placeId: string) => void;
   onReset: () => void;
-  onMapPickToggle: () => void;
   onMapPickFocusTarget: (target: 'start' | 'destination') => void;
   onMapPickCancel: () => void;
+  onRemoveStop: (placeId: string) => void;
+  onStopHover?: (placeId: string | null) => void;
+  hoveredStopId?: string | null;
+  onElevationPointHover?: (index: number | null) => void;
+  onElevationChartFocusChange?: (focused: boolean) => void;
+  onElevationPointClick?: (index: number) => void;
 };
 
 export function Sidebar(props: Readonly<SidebarProps>) {
   const {
     routeBuilt,
     mode,
-    activeTab,
     selectedPlace,
     routeInfo,
     routeIntermediates,
+    routePlacesForStops,
     from,
     to,
-    mapPickMode,
-    mapPickTarget,
     map,
     onFromChange,
     onToChange,
@@ -69,18 +62,23 @@ export function Sidebar(props: Readonly<SidebarProps>) {
     onSwapLocations,
     onModeChange,
     onBuildRoute,
-    onTabChange,
-    onSelectPlace,
-    onAddPlaceToRoute,
-    onRemovePlaceFromRoute,
     onReset,
-    onMapPickToggle,
     onMapPickFocusTarget,
-    onMapPickCancel
+    onMapPickCancel,
+    onRemoveStop,
+    onStopHover,
+    hoveredStopId,
+    onElevationPointHover,
+    onElevationChartFocusChange,
+    onElevationPointClick
   } = props;
 
   const [isMobileSheetExpanded, setIsMobileSheetExpanded] = useState(true);
-  const placePhotoCache = usePlacePhotoCache(selectedPlace, routeInfo.interestingPlaces);
+
+  const alongRoutePlaceIds = useMemo(
+    () => new Set(routeInfo.interestingPlaces.map((place) => place.id)),
+    [routeInfo.interestingPlaces]
+  );
 
   const viewModel = getSidebarViewModel({
     routeBuilt,
@@ -104,15 +102,16 @@ export function Sidebar(props: Readonly<SidebarProps>) {
     errorMessage: routeInfo.errorMessage,
     routeInfo,
     elevationPoints: viewModel.elevationPoints,
-    elevationInsight: viewModel.elevationInsight
+    elevationInsight: viewModel.elevationInsight,
+    onElevationPointHover,
+    onElevationChartFocusChange,
+    onElevationPointClick
   };
 
   const plannerFormProps = {
     from,
     to,
     mode,
-    mapPickMode,
-    mapPickTarget,
     map,
     onFromChange,
     onToChange,
@@ -120,50 +119,38 @@ export function Sidebar(props: Readonly<SidebarProps>) {
     onToPlaceSelect,
     onModeChange,
     onBuildRoute,
-    onMapPickToggle,
     onMapPickFocusTarget,
     onMapPickCancel,
-    onSwapLocations
+    onSwapLocations,
+    routeBuilt,
+    routeStops: routeIntermediates,
+    routePlaces: routePlacesForStops,
+    routePath: routeInfo.routePath,
+    alongRoutePlaceIds,
+    onRemoveStop,
+    onStopHover,
+    hoveredStopId,
+    onPlanNewRoute: onReset
   };
 
-  const placesPanel = (
-    <PlacesPanel
-      places={viewModel.sortedInterestingPlaces}
-      selectedPlace={selectedPlace}
-      routeIntermediates={routeIntermediates}
-      photoCache={placePhotoCache}
-      showPlaceholder={viewModel.showPlacesPlaceholder}
-      placeholderMessage={viewModel.placesPlaceholderMessage}
-      placeholderText={viewModel.placesPlaceholderText}
-      onSelectPlace={onSelectPlace}
-      onAddToRoute={(placeId) => {
-        const place = routeInfo.interestingPlaces.find((item) => item.id === placeId);
-        if (!place) return;
-
-        onAddPlaceToRoute(place);
-      }}
-      onRemoveFromRoute={onRemovePlaceFromRoute}
-      onOpenInGoogleMaps={(placeId) => {
-        const place = routeInfo.interestingPlaces.find((item) => item.id === placeId);
-        if (!place) return;
-
-        window.open(getGoogleMapsPlaceUrl(place), '_blank', 'noreferrer');
-      }}
-    />
-  );
-
   return (
-    <aside className="sidebar">
+    <aside className={`sidebar${routeBuilt ? ' sidebar--route-built' : ''}`}>
       <SidebarLogo />
 
-      <RoutePlannerForm variant="desktop" {...plannerFormProps} />
+      <RoutePlannerForm
+        variant="desktop"
+        {...plannerFormProps}
+      />
 
       {routeBuilt && (
         <DesktopRouteSection
-          activeTab={activeTab}
-          onTabChange={onTabChange}
-          overview={<RouteOverview variant="desktop" {...routeOverviewProps} />}
-          places={placesPanel}
+          overview={
+            <RouteOverview
+              variant="desktop"
+              {...routeOverviewProps}
+            />
+          }
+          onReset={onReset}
         />
       )}
 
@@ -171,14 +158,23 @@ export function Sidebar(props: Readonly<SidebarProps>) {
         expanded={isMobileSheetExpanded || Boolean(selectedPlace)}
         expandedSnap={selectedPlace ? 'middle' : 'intermediate'}
         routeBuilt={routeBuilt}
-        activeTab={activeTab}
         title={viewModel.sheetTitle}
         onExpandedChange={setIsMobileSheetExpanded}
-        planner={<RoutePlannerForm variant="mobile" {...plannerFormProps} />}
-        overview={<RouteOverview variant="mobile" {...routeOverviewProps} onReset={onReset} />}
-        places={placesPanel}
-        onTabChange={onTabChange}
+        planner={
+          <RoutePlannerForm
+            variant="mobile"
+            {...plannerFormProps}
+          />
+        }
+        overview={
+          <RouteOverview
+            variant="mobile"
+            {...routeOverviewProps}
+            onReset={onReset}
+          />
+        }
       />
+
     </aside>
   );
 }

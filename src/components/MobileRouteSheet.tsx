@@ -1,19 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { CSSProperties, PointerEvent, ReactNode } from 'react';
 
-type SidebarTab = 'overview' | 'places';
-
 type MobileRouteSheetProps = {
   expanded: boolean;
   expandedSnap?: 'middle' | 'intermediate';
   routeBuilt: boolean;
-  activeTab: SidebarTab;
   title: string;
   planner: ReactNode;
   overview: ReactNode;
-  places: ReactNode;
   onExpandedChange: (expanded: boolean) => void;
-  onTabChange: (tab: SidebarTab) => void;
 };
 
 const TOP_GAP_PX = 16;
@@ -74,13 +69,10 @@ export function MobileRouteSheet({
   expanded,
   expandedSnap = 'intermediate',
   routeBuilt,
-  activeTab,
   title,
   planner,
   overview,
-  places,
-  onExpandedChange,
-  onTabChange
+  onExpandedChange
 }: Readonly<MobileRouteSheetProps>) {
   const initialHeight = (() => {
     if (globalThis.window === undefined) {
@@ -254,24 +246,10 @@ export function MobileRouteSheet({
 
       <div className="sidebar-mobile-sheet-body">
         {routeBuilt ? (
-          <div className="sidebar-mobile-route">
-            <div className="sidebar-mobile-tabs">
-              <button
-                className={`sidebar-mobile-tab ${activeTab === 'overview' ? 'active' : ''}`}
-                onClick={() => onTabChange('overview')}
-                type="button">
-                Overview
-              </button>
-              <button
-                className={`sidebar-mobile-tab ${activeTab === 'places' ? 'active' : ''}`}
-                onClick={() => onTabChange('places')}
-                type="button">
-                Places
-              </button>
-            </div>
-
-            {activeTab === 'overview' ? overview : places}
-          </div>
+          <>
+            {planner}
+            <div className="sidebar-mobile-route">{overview}</div>
+          </>
         ) : (
           planner
         )}

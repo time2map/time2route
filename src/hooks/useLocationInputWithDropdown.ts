@@ -133,13 +133,21 @@ export function useLocationInputWithDropdown({
     ]
   );
 
+  const activateMapPickTarget = useCallback(() => {
+    onFocus?.();
+  }, [onFocus]);
+
   const handleInputFocus = useCallback(() => {
     resetSession();
-    onFocus?.();
+    activateMapPickTarget();
     if (value.trim().length >= MIN_QUERY_LENGTH) {
       setIsOpen(true);
     }
-  }, [onFocus, resetSession, setIsOpen, value]);
+  }, [activateMapPickTarget, resetSession, setIsOpen, value]);
+
+  const handleInputPointerDown = useCallback(() => {
+    activateMapPickTarget();
+  }, [activateMapPickTarget]);
 
   const handleInputChange = useCallback(
     (nextValue: string) => {
@@ -230,6 +238,7 @@ export function useLocationInputWithDropdown({
     highlightSuggestion,
     inputProps: {
       onFocus: handleInputFocus,
+      onPointerDown: handleInputPointerDown,
       onChange: handleInputChange,
       onKeyDown: handleInputKeyDown,
       onBlur: handleInputBlur

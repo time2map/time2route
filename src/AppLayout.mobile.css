@@ -13,10 +13,17 @@
     position: fixed;
     inset: auto 0 0;
     z-index: 20;
+    height: auto;
     background: transparent;
     border-right: none;
     overflow: visible;
     pointer-events: none;
+  }
+
+  .sidebar > .sidebar-section:not(.state-route) {
+    flex: none;
+    min-height: auto;
+    overflow: visible;
   }
 
   .sidebar-logo,
@@ -275,5 +282,17 @@
   .place-card-v2__thumb {
     width: 64px;
     height: 64px;
+  }
+
+  .map-float.top-right {
+    bottom: 150px;
+    right: 10px;
+  }
+
+  .map-top-left-stack {
+    top: 12px;
+    left: 12px;
+    width: min(360px, calc(100% - 24px));
+    max-width: calc(100% - 24px);
   }
 }
