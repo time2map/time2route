@@ -72,7 +72,11 @@ export function RouteOverview({
     <>
       {/* {variant === 'mobile' && <RoutePointsMob from={from} to={to} />} */}
 
-      <RouteSummary routeInfo={routeInfo} modeLabel={modeLabel} />
+      <RouteSummary
+        routeInfo={routeInfo}
+        modeLabel={modeLabel}
+        compact={variant === 'mobile'}
+      />
 
       <RouteBadges
         placesLabel={placesLabel}
@@ -87,8 +91,8 @@ export function RouteOverview({
           points={elevationPoints.length > 1 ? elevationPoints : undefined}
           chartHeight={160}
           onPointHover={onElevationPointHover}
-          onChartFocusChange={onElevationChartFocusChange}
-          onPointClick={onElevationPointClick}
+          onChartFocusChange={variant === 'desktop' ? onElevationChartFocusChange : undefined}
+          onPointClick={variant === 'desktop' ? onElevationPointClick : undefined}
         />
         <p className="elevation-insight">{elevationInsight}</p>
       </div>

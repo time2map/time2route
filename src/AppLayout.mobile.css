@@ -64,6 +64,11 @@
     user-select: none;
   }
 
+  .sidebar-mobile-sheet.dragging .sidebar-mobile-sheet-body {
+    touch-action: none;
+    overflow: hidden;
+  }
+
   .sidebar-mobile-sheet-handle {
     display: flex;
     justify-content: center;
@@ -95,6 +100,7 @@
     justify-content: space-between;
     padding: 0 20px 8px;
     flex-shrink: 0;
+    touch-action: none;
   }
 
   .sidebar-mobile-sheet-title {
@@ -120,12 +126,22 @@
     min-width: 0;
     min-height: 0;
 
-    overflow-y: auto;
+    overflow-y: hidden;
     overflow-x: hidden;
     overscroll-behavior: contain;
-    -webkit-overflow-scrolling: touch;
+    touch-action: none;
 
     padding: 5px 5px calc(12px + var(--safe-b));
+  }
+
+  .sidebar-mobile-sheet.fully-expanded .sidebar-mobile-sheet-body {
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+  }
+
+  .sidebar-mobile-sheet.fully-expanded .sidebar-mobile-sheet-body.at-scroll-top {
+    touch-action: none;
   }
 
   .sidebar-mobile-form {
@@ -197,8 +213,61 @@
     margin-top: 10px;
   }
 
-  .sidebar-mobile-route .route-summary {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  .route-summary--compact {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    padding: 8px 10px;
+    background: var(--bg);
+    border-radius: var(--radius-sm);
+  }
+
+  .route-summary-compact-stat {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    min-width: 0;
+    flex: 1 1 0;
+  }
+
+  .route-summary-compact-icon {
+    display: inline-flex;
+    flex-shrink: 0;
+    color: var(--muted);
+  }
+
+  .route-summary-compact-text {
+    display: flex;
+    flex-direction: row;
+    align-items: baseline;
+    gap: 4px;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .route-summary-compact-value {
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.2;
+    flex-shrink: 0;
+  }
+
+  .route-summary-compact-sub {
+    font-size: 10px;
+    line-height: 1.2;
+    color: var(--muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .route-summary-compact-divider {
+    flex: 0 0 1px;
+    align-self: stretch;
+    width: 1px;
+    margin: 2px 6px;
+    background: var(--border);
   }
 
   .route-points-mob {

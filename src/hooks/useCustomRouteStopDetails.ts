@@ -1,27 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { enrichInterestingPlace } from '../api/placeDetails';
-import {
-  getCustomRouteStops,
-  routeStopToInterestingPlace
-} from '../utils/customRouteStopMarker';
+import { getCustomRouteStops, routeStopToInterestingPlace } from '../components/mapComponents/customRouteStopMarker';
 import type { InterestingPlace, RouteIntermediatePoint } from '../utils/types';
 
 function needsPlaceEnrichment(place: InterestingPlace): boolean {
   return typeof place.rating !== 'number' && (place.photos?.length ?? 0) === 0;
 }
 
-export function useCustomRouteStopDetails(
-  intermediates: RouteIntermediatePoint[],
-  routePlaces: InterestingPlace[]
-) {
+export function useCustomRouteStopDetails(intermediates: RouteIntermediatePoint[], routePlaces: InterestingPlace[]) {
   const [detailsById, setDetailsById] = useState<Record<string, InterestingPlace>>({});
   const loadedIdsRef = useRef<Set<string>>(new Set());
   const inflightIdsRef = useRef<Set<string>>(new Set());
 
-  const customStops = useMemo(
-    () => getCustomRouteStops(intermediates, routePlaces),
-    [intermediates, routePlaces]
-  );
+  const customStops = useMemo(() => getCustomRouteStops(intermediates, routePlaces), [intermediates, routePlaces]);
 
   useEffect(() => {
     const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
@@ -30,9 +21,7 @@ export function useCustomRouteStopDetails(
       const basePlace = routeStopToInterestingPlace(stop);
       if (!needsPlaceEnrichment(basePlace)) {
         loadedIdsRef.current.add(stop.id);
-        setDetailsById((previous) =>
-          previous[stop.id] ? previous : { ...previous, [stop.id]: basePlace }
-        );
+        setDetailsById((previous) => (previous[stop.id] ? previous : { ...previous, [stop.id]: basePlace }));
         return;
       }
 

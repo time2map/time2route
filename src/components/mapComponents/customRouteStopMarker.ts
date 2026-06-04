@@ -1,8 +1,8 @@
-import { getPlacePhotoViewState, type PlacePhotoState } from '../hooks/usePlacePhotoCache';
+import { getPlacePhotoViewState, type PlacePhotoState } from '../../hooks/usePlacePhotoCache';
 import { createPlaceHoverTip } from './placeHoverTip';
 import { createPlaceMapPopup, type PlaceMapPopupAction } from './placeMapPopup';
-import { resolveRouteStopCategoryColor, resolveRouteStopCategoryVariant } from './routeStopIndicator';
-import type { InterestingPlace, RouteIntermediatePoint } from './types';
+import { resolveRouteStopCategoryColor, resolveRouteStopCategoryVariant } from '../../utils/routeStopIndicator';
+import type { InterestingPlace, RouteIntermediatePoint } from '../../utils/types';
 
 export type CustomRouteStopPopupContext = {
   placePopupId: string | null;
@@ -34,12 +34,9 @@ export function createCustomRouteStopMarkerElement(
   place: InterestingPlace,
   popupContext: CustomRouteStopPopupContext
 ): HTMLDivElement {
-  const showMapPopup =
-    popupContext.placePopupId === place.id || popupContext.selectedPlace === place.id;
+  const showMapPopup = popupContext.placePopupId === place.id || popupContext.selectedPlace === place.id;
   const isHovered =
-    !showMapPopup &&
-    popupContext.hoveredPlaceId === place.id &&
-    popupContext.selectedPlace !== place.id;
+    !showMapPopup && popupContext.hoveredPlaceId === place.id && popupContext.selectedPlace !== place.id;
   const photoState = getPlacePhotoViewState(popupContext.placePhotos, place.id);
   const categoryVariant = resolveRouteStopCategoryVariant(place);
   const categoryColor = resolveRouteStopCategoryColor(place);
@@ -90,8 +87,7 @@ export function bindCustomRouteStopHoverHandlers(
   popupContext: CustomRouteStopPopupContext,
   handlers: { onEnter: (placeId: string) => void; onLeave: () => void }
 ): void {
-  const showMapPopup =
-    popupContext.placePopupId === placeId || popupContext.selectedPlace === placeId;
+  const showMapPopup = popupContext.placePopupId === placeId || popupContext.selectedPlace === placeId;
   if (showMapPopup) {
     return;
   }

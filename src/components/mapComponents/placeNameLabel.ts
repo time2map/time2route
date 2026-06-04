@@ -1,11 +1,7 @@
-import { escapePlaceHtml } from './placeFormat';
-import type { InterestingPlace } from './types';
+import { escapePlaceHtml } from '../../utils/placeFormat';
+import type { InterestingPlace } from '../../utils/types';
 
-export function createPlaceNameLabel(
-  place: InterestingPlace,
-  index: number,
-  markerColor: string
-): HTMLDivElement {
+export function createPlaceNameLabel(place: InterestingPlace, index: number, markerColor: string): HTMLDivElement {
   const label = document.createElement('div');
   label.className = 'place-name-label visible';
   label.dataset.placeLabel = String(index);

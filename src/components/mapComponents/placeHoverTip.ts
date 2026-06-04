@@ -1,6 +1,6 @@
-import { escapePlaceHtml, formatDistanceFromRoute, formatPlaceTypeLabel } from './placeFormat';
-import { resolvePlaceCategory } from './poiTypes';
-import type { InterestingPlace } from './types';
+import { escapePlaceHtml, formatDistanceFromRoute, formatPlaceTypeLabel } from '../../utils/placeFormat';
+import { resolvePlaceCategory } from '../../utils/poiTypes';
+import type { InterestingPlace } from '../../utils/types';
 
 function renderHoverTipRow(place: InterestingPlace): string {
   const categoryMeta = resolvePlaceCategory(place);

@@ -13,6 +13,7 @@ type RouteInfo = {
 type RouteSummaryProps = {
   routeInfo: RouteInfo;
   modeLabel: string;
+  compact?: boolean;
 };
 
 function StatCard({
@@ -40,7 +41,43 @@ function StatCard({
   );
 }
 
-export function RouteSummary({ routeInfo, modeLabel }: Readonly<RouteSummaryProps>) {
+function CompactStat({
+  icon,
+  value,
+  sub
+}: Readonly<{
+  icon: ReactNode;
+  value: ReactNode;
+  sub?: ReactNode;
+}>) {
+  return (
+    <div className="route-summary-compact-stat">
+      <span className="route-summary-compact-icon" aria-hidden="true">
+        {icon}
+      </span>
+      <span className="route-summary-compact-text">
+        <span className="route-summary-compact-value">{value}</span>
+        {sub ? <span className="route-summary-compact-sub">{sub}</span> : null}
+      </span>
+    </div>
+  );
+}
+
+export function RouteSummary({ routeInfo, modeLabel, compact = false }: Readonly<RouteSummaryProps>) {
+  const elevationValue = routeInfo.elevation ? `${routeInfo.elevation.totalAscentM} m` : '—';
+
+  if (compact) {
+    return (
+      <div className="route-summary route-summary--compact" role="group" aria-label="Route summary">
+        <CompactStat icon={<DistanceIcon />} value={routeInfo.distance} />
+        <span className="route-summary-compact-divider" aria-hidden="true" />
+        <CompactStat icon={<TimeIcon />} value={routeInfo.duration} sub={modeLabel} />
+        <span className="route-summary-compact-divider" aria-hidden="true" />
+        <CompactStat icon={<ElevationIcon />} value={elevationValue} sub="gain" />
+      </div>
+    );
+  }
+
   return (
     <div className="route-summary">
       <StatCard
@@ -59,16 +96,10 @@ export function RouteSummary({ routeInfo, modeLabel }: Readonly<RouteSummaryProp
 
       <StatCard
         label="Elevation"
-        value={routeInfo.elevation ? `${routeInfo.elevation.totalAscentM} m` : '—'}
+        value={elevationValue}
         sub="gain"
         icon={<ElevationIcon />}
       />
-
-      {/* <StatCard
-        label="Difficulty"
-        value={routeInfo.elevation ? routeInfo.elevation.difficulty : '—'}
-        icon={<DifficultyIcon />}
-      /> */}
     </div>
   );
 }

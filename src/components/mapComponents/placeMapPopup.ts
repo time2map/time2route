@@ -1,15 +1,8 @@
-import {
-  escapePlaceHtml,
-  formatDistanceFromRoute,
-  formatPlaceTypeLabel
-} from './placeFormat';
-import { resolvePlaceCategory } from './poiTypes';
-import type { InterestingPlace } from './types';
+import { escapePlaceHtml, formatDistanceFromRoute, formatPlaceTypeLabel } from '../../utils/placeFormat';
+import { resolvePlaceCategory } from '../../utils/poiTypes';
+import type { InterestingPlace } from '../../utils/types';
 
-export type PlaceMapPopupAction =
-  | 'close'
-  | 'add-stop'
-  | 'open-gmaps';
+export type PlaceMapPopupAction = 'close' | 'add-stop' | 'open-gmaps';
 
 type PlaceMapPopupParams = {
   place: InterestingPlace;
@@ -106,10 +99,7 @@ export function createPlaceMapPopup(params: PlaceMapPopupParams): HTMLDivElement
     if (!photoTrigger) return;
 
     popup.classList.toggle('map-popup--photo-expanded');
-    popup.setAttribute(
-      'aria-expanded',
-      String(popup.classList.contains('map-popup--photo-expanded'))
-    );
+    popup.setAttribute('aria-expanded', String(popup.classList.contains('map-popup--photo-expanded')));
   });
 
   return popup;

@@ -1,6 +1,6 @@
-import type { MapPickPoint } from '../api/placeAutocomplete';
-import { escapePlaceHtml } from './placeFormat';
-import type { InterestingPlace } from './types';
+import type { MapPickPoint } from '../../api/placeAutocomplete';
+import { escapePlaceHtml } from '../../utils/placeFormat';
+import type { InterestingPlace } from '../../utils/types';
 
 export type MapPickPopupPlanAction = 'close' | 'start' | 'dest';
 export type MapPickPopupRouteAction = 'close' | 'add-stop' | 'open-gmaps';
@@ -72,7 +72,13 @@ function createMapPickPopup(params: {
     const action = target.dataset.action as MapPickPopupAction | undefined;
     if (!action) return;
 
-    if (action === 'close' || action === 'start' || action === 'dest' || action === 'add-stop' || action === 'open-gmaps') {
+    if (
+      action === 'close' ||
+      action === 'start' ||
+      action === 'dest' ||
+      action === 'add-stop' ||
+      action === 'open-gmaps'
+    ) {
       onAction(action);
     }
   });

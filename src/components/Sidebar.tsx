@@ -156,7 +156,7 @@ export function Sidebar(props: Readonly<SidebarProps>) {
 
       <MobileRouteSheet
         expanded={isMobileSheetExpanded || Boolean(selectedPlace)}
-        expandedSnap={selectedPlace ? 'middle' : 'intermediate'}
+        expandedSnap={selectedPlace ? 'markerSelected' : 'intermediate'}
         routeBuilt={routeBuilt}
         title={viewModel.sheetTitle}
         onExpandedChange={setIsMobileSheetExpanded}
