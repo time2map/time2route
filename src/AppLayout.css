@@ -115,14 +115,14 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 28px 8px;
+  padding: 8px 12px 8px;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
 
 .sidebar-logo-icon {
-  width: 24px;
-  height: 24px;
+
+  height: 30px;
 }
 
 .sidebar-brand {
