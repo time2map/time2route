@@ -100,7 +100,7 @@ export function MapPane(props: Readonly<MapPaneProps>) {
   const lastRoutePathRef = useRef<google.maps.LatLngLiteral[]>([]);
   const closePlacePopupRef = useRef<() => void>(() => {});
 
-  const { mapContainerRef, map, isReady } = useGoogleMapInit({ apiKey, mapId, onMapReady });
+  const { mapContainerRef, mapRef, map, isReady } = useGoogleMapInit({ apiKey, mapId, onMapReady });
 
   const click = useMapClickHandling({
     map,
@@ -208,7 +208,7 @@ export function MapPane(props: Readonly<MapPaneProps>) {
     onAddPlaceToRoute
   });
 
-  const { handleLocateUser, isLocating } = useUserLocation({ map });
+  const { handleLocateUser, isLocating } = useUserLocation({ mapRef });
 
   useMapMarkerVisibility({
     map,

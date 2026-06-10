@@ -42,6 +42,7 @@ type SidebarProps = {
   onElevationPointHover?: (index: number | null) => void;
   onElevationChartFocusChange?: (focused: boolean) => void;
   onElevationPointClick?: (index: number) => void;
+  isOnline?: boolean;
 };
 
 export function Sidebar(props: Readonly<SidebarProps>) {
@@ -70,7 +71,8 @@ export function Sidebar(props: Readonly<SidebarProps>) {
     hoveredStopId,
     onElevationPointHover,
     onElevationChartFocusChange,
-    onElevationPointClick
+    onElevationPointClick,
+    isOnline = true
   } = props;
 
   const [isMobileSheetExpanded, setIsMobileSheetExpanded] = useState(true);
@@ -130,7 +132,8 @@ export function Sidebar(props: Readonly<SidebarProps>) {
     onRemoveStop,
     onStopHover,
     hoveredStopId,
-    onPlanNewRoute: onReset
+    onPlanNewRoute: onReset,
+    isOnline
   };
 
   return (

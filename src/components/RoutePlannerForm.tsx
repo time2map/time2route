@@ -35,6 +35,7 @@ type RoutePlannerFormProps = {
   onStopHover?: (placeId: string | null) => void;
   hoveredStopId?: string | null;
   onPlanNewRoute?: () => void;
+  isOnline?: boolean;
 };
 
 type ActiveDropdown = 'from' | 'to' | null;
@@ -63,14 +64,15 @@ export function RoutePlannerForm({
   routePath,
   onRemoveStop,
   onStopHover,
-  hoveredStopId = null
+  hoveredStopId = null,
+  isOnline = true
 }: Readonly<RoutePlannerFormProps>) {
   const isMobile = variant === 'mobile';
   const fromInputId = isMobile ? 'fromInputMob' : 'fromInput';
   const toInputId = isMobile ? 'toInputMob' : 'toInput';
   const [activeDropdown, setActiveDropdown] = useState<ActiveDropdown>(null);
 
-  const isBuildRouteDisabled = !from.trim() || !to.trim();
+  const isBuildRouteDisabled = !from.trim() || !to.trim() || !isOnline;
 
   const fromField = (
     <LocationInputWithDropdown

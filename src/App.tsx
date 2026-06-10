@@ -4,6 +4,9 @@ import './AppLayout.css';
 import './AppLayout.mobile.css';
 import { MapPane } from './components/MapPane';
 import { Sidebar } from './components/Sidebar';
+import { OfflineNetworkNotifier } from './components/OfflineNetworkNotifier';
+import { ErrorToastProvider } from './context/ErrorToastContext';
+import { useOnlineStatus } from './hooks/useOnlineStatus';
 import { useCustomRouteStopDetails } from './hooks/useCustomRouteStopDetails';
 import { getDistanceAlongPolylineMeters } from './utils/routePolyline';
 import { sortRouteStopsByPath } from './utils/routeStopOrder';
@@ -36,6 +39,7 @@ function normalizeRouteStops(stops: RouteIntermediatePoint[]) {
 
 
 function App() {
+  const isOnline = useOnlineStatus();
   const [routeBuilt, setRouteBuilt] = useState(false);
   const [mode, setMode] = useState<ActivityMode>('walk');
   const [buildNonce, setBuildNonce] = useState(0);
@@ -74,6 +78,8 @@ function App() {
   } | null>(null);
 
   const handleBuildRoute = useCallback(() => {
+    if (!isOnline) return;
+
     setBuiltRouteParams({
       origin: from,
       destination: to,
@@ -95,7 +101,7 @@ function App() {
       interestingPlaces: [],
       routePath: []
     });
-  }, [from, to, mode]);
+  }, [from, isOnline, mode, to]);
 
   const handleReset = useCallback(() => {
     setRouteBuilt(false);
@@ -347,7 +353,9 @@ function App() {
   }, [customStopPlaces, routeInfo.interestingPlaces]);
 
   return (
-    <main className={`app-shell ${routeBuilt ? 'app-state-route' : 'app-state-empty'}`}>
+    <ErrorToastProvider>
+      <OfflineNetworkNotifier />
+      <main className={`app-shell ${routeBuilt ? 'app-state-route' : 'app-state-empty'}`}>
       <section className="main-area">
         <Sidebar
           routeBuilt={routeBuilt}
@@ -375,6 +383,7 @@ function App() {
           onElevationPointHover={handleElevationPointHover}
           onElevationChartFocusChange={handleElevationChartFocusChange}
           onElevationPointClick={handleElevationPointClick}
+          isOnline={isOnline}
         />
         <MapPane
           routeBuilt={routeBuilt}
@@ -409,6 +418,7 @@ function App() {
         />
       </section>
     </main>
+    </ErrorToastProvider>
   );
 }
 
