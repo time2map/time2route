@@ -33,6 +33,7 @@ export function useMapClickHandling({
   const pickMarkerRef = useRef<google.maps.marker.AdvancedMarkerElement | null>(null);
   const pickPinElRef = useRef<HTMLDivElement | null>(null);
   const ignoreNextMapPickClickRef = useRef(false);
+  const suppressMapPickUntilRef = useRef(0);
   const wasMapPickModeRef = useRef(false);
   const [mapPick, setMapPick] = useState<MapPickState | null>(null);
 
@@ -100,7 +101,10 @@ export function useMapClickHandling({
     };
 
     const listener = map.addListener('click', (event: google.maps.MapMouseEvent) => {
-      if (ignoreNextMapPickClickRef.current) {
+      const shouldSuppressMapPick =
+        ignoreNextMapPickClickRef.current || Date.now() < suppressMapPickUntilRef.current;
+
+      if (shouldSuppressMapPick) {
         ignoreNextMapPickClickRef.current = false;
         return;
       }
@@ -172,6 +176,7 @@ export function useMapClickHandling({
 
   const ignoreNextClick = useCallback(() => {
     ignoreNextMapPickClickRef.current = true;
+    suppressMapPickUntilRef.current = Date.now() + 450;
   }, []);
 
   return {

@@ -1,12 +1,18 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
+import type { ExpandedSheetSnap } from '../utils/mobileRouteSheetSnap';
+import type { SearchHistoryEntry } from '../utils/searchHistory';
 import { getSidebarViewModel } from '../utils/getSidebarViewModel';
 import type { ActivityMode, ElevationStats, InterestingPlace } from '../utils/types';
 import { DesktopRouteSection } from './DesktopRouteSection';
 import { MobileRouteSheet } from './MobileRouteSheet';
 import { RouteOverview } from './RouteOverview';
+import { RoutePanelContent } from './RoutePanelContent';
 import { RoutePlannerForm } from './RoutePlannerForm';
 import { SidebarLogo } from './SidebarLogo';
 import type { PlaceAutocompleteSelection } from '../api/placeAutocomplete';
+import { useMediaQuery } from '../hooks/useMediaQuery';
+
+const MOBILE_MEDIA_QUERY = '(max-width: 768px)';
 
 type SidebarProps = {
   routeBuilt: boolean;
@@ -36,13 +42,21 @@ type SidebarProps = {
   onReset: () => void;
   onMapPickFocusTarget: (target: 'start' | 'destination') => void;
   onMapPickCancel: () => void;
+  mapPickTarget: 'start' | 'destination' | null;
   onRemoveStop: (placeId: string) => void;
   onStopHover?: (placeId: string | null) => void;
+  onStopClick?: (placeId: string) => void;
+  onRoutePointsClick?: () => void;
   hoveredStopId?: string | null;
   onElevationPointHover?: (index: number | null) => void;
   onElevationChartFocusChange?: (focused: boolean) => void;
   onElevationPointClick?: (index: number) => void;
   isOnline?: boolean;
+  mobileSheetSnap: ExpandedSheetSnap;
+  isMobileSheetExpanded: boolean;
+  onMobileSheetExpandedChange: (expanded: boolean) => void;
+  onMobileSheetSnapChange: (snap: ExpandedSheetSnap) => void;
+  onSearchHistorySelect?: (entry: SearchHistoryEntry) => void;
 };
 
 export function Sidebar(props: Readonly<SidebarProps>) {
@@ -66,16 +80,49 @@ export function Sidebar(props: Readonly<SidebarProps>) {
     onReset,
     onMapPickFocusTarget,
     onMapPickCancel,
+    mapPickTarget,
     onRemoveStop,
     onStopHover,
+    onStopClick,
+    onRoutePointsClick,
     hoveredStopId,
     onElevationPointHover,
     onElevationChartFocusChange,
     onElevationPointClick,
-    isOnline = true
+    isOnline = true,
+    mobileSheetSnap,
+    isMobileSheetExpanded,
+    onMobileSheetExpandedChange,
+    onMobileSheetSnapChange,
+    onSearchHistorySelect
   } = props;
 
-  const [isMobileSheetExpanded, setIsMobileSheetExpanded] = useState(true);
+  const isMobile = useMediaQuery(MOBILE_MEDIA_QUERY);
+  const werePlannerFieldsFilledRef = useRef(false);
+
+  useEffect(() => {
+    if (!isMobile || routeBuilt || selectedPlace) {
+      werePlannerFieldsFilledRef.current = false;
+      return;
+    }
+
+    const bothFieldsFilled = Boolean(from.trim() && to.trim());
+    const becameFilled = bothFieldsFilled && !werePlannerFieldsFilledRef.current;
+    werePlannerFieldsFilledRef.current = bothFieldsFilled;
+
+    if (becameFilled) {
+      onMobileSheetSnapChange('intermediate');
+      onMobileSheetExpandedChange(true);
+    }
+  }, [
+    from,
+    isMobile,
+    onMobileSheetExpandedChange,
+    onMobileSheetSnapChange,
+    routeBuilt,
+    selectedPlace,
+    to
+  ]);
 
   const alongRoutePlaceIds = useMemo(
     () => new Set(routeInfo.interestingPlaces.map((place) => place.id)),
@@ -123,6 +170,7 @@ export function Sidebar(props: Readonly<SidebarProps>) {
     onBuildRoute,
     onMapPickFocusTarget,
     onMapPickCancel,
+    mapPickTarget,
     onSwapLocations,
     routeBuilt,
     routeStops: routeIntermediates,
@@ -131,10 +179,63 @@ export function Sidebar(props: Readonly<SidebarProps>) {
     alongRoutePlaceIds,
     onRemoveStop,
     onStopHover,
+    onStopClick,
+    onRoutePointsClick,
     hoveredStopId,
+    selectedStopId: selectedPlace,
     onPlanNewRoute: onReset,
-    isOnline
+    isOnline,
+    onCollapseMobileSheet: isMobile
+      ? () => {
+          onMobileSheetSnapChange('peek');
+          onMobileSheetExpandedChange(true);
+        }
+      : undefined,
+    onSearchHistorySelect,
+    onExpandMobileSheetForInput: isMobile
+      ? () => {
+          onMobileSheetSnapChange('penultimate');
+          onMobileSheetExpandedChange(true);
+        }
+      : undefined
   };
+
+  const mobilePlanner = (
+    <RoutePlannerForm
+      variant="mobile"
+      {...plannerFormProps}
+      mobileSheetSnap={mobileSheetSnap}
+      isMobileSheetExpanded={isMobileSheetExpanded}
+    />
+  );
+
+  const mobileOverview = (
+    <RouteOverview
+      variant="mobile"
+      {...routeOverviewProps}
+      onReset={onReset}
+    />
+  );
+
+  if (isMobile) {
+    return (
+      <aside className={`sidebar${routeBuilt ? ' sidebar--route-built' : ''}`}>
+        <MobileRouteSheet
+          expanded={isMobileSheetExpanded || Boolean(selectedPlace)}
+          expandedSnap={selectedPlace ? 'markerSelected' : mobileSheetSnap}
+          title={viewModel.sheetTitle}
+          onExpandedChange={onMobileSheetExpandedChange}
+          onSnapChange={onMobileSheetSnapChange}
+          onReset={onReset}>
+          <RoutePanelContent
+            routeBuilt={routeBuilt}
+            planner={mobilePlanner}
+            overview={mobileOverview}
+          />
+        </MobileRouteSheet>
+      </aside>
+    );
+  }
 
   return (
     <aside className={`sidebar${routeBuilt ? ' sidebar--route-built' : ''}`}>
@@ -156,28 +257,6 @@ export function Sidebar(props: Readonly<SidebarProps>) {
           onReset={onReset}
         />
       )}
-
-      <MobileRouteSheet
-        expanded={isMobileSheetExpanded || Boolean(selectedPlace)}
-        expandedSnap={selectedPlace ? 'markerSelected' : 'intermediate'}
-        routeBuilt={routeBuilt}
-        title={viewModel.sheetTitle}
-        onExpandedChange={setIsMobileSheetExpanded}
-        planner={
-          <RoutePlannerForm
-            variant="mobile"
-            {...plannerFormProps}
-          />
-        }
-        overview={
-          <RouteOverview
-            variant="mobile"
-            {...routeOverviewProps}
-            onReset={onReset}
-          />
-        }
-      />
-
     </aside>
   );
 }

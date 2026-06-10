@@ -7,7 +7,7 @@ export function createPlaceNameLabel(place: InterestingPlace, index: number, mar
   label.dataset.placeLabel = String(index);
   label.innerHTML = `
     <div class="pnl-inner">
-      <span class="pnl-dot" style="background:${markerColor}"></span>${escapePlaceHtml(place.name)}
+      <span class="pnl-dot" style="background:${markerColor}"></span><span class="pnl-text">${escapePlaceHtml(place.name)}</span>
     </div>
   `;
   return label;

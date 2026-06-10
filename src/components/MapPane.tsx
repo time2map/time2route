@@ -12,6 +12,7 @@ import { useEndpointMarkers } from '../hooks/map/useEndpointMarkers';
 import { useMapViewport } from '../hooks/map/useMapViewport';
 import { useMapPickPopup } from '../hooks/map/useMapPickPopup';
 import { useUserLocation } from '../hooks/map/useUserLocation';
+import { useMapDragCollapseSheet } from '../hooks/map/useMapDragCollapseSheet';
 import { useMapMarkerVisibility } from '../hooks/map/useMapMarkerVisibility';
 import { resolveGoogleMapId } from '../hooks/map/mapPaneConstants';
 import type { RouteEndpointPoint } from '../hooks/map/mapPaneTypes';
@@ -59,6 +60,8 @@ export type MapPaneProps = {
   highlightedRouteDistanceKm: number | null;
   elevationChartFocused: boolean;
   routeChartZoomTarget: { distanceKm: number; key: number } | null;
+  onMapUserMove?: () => void;
+  onCollapseMobileSheet?: () => void;
 };
 
 export function MapPane(props: Readonly<MapPaneProps>) {
@@ -91,7 +94,9 @@ export function MapPane(props: Readonly<MapPaneProps>) {
     onRemovePlaceFromRoute,
     highlightedRouteDistanceKm,
     elevationChartFocused,
-    routeChartZoomTarget
+    routeChartZoomTarget,
+    onMapUserMove,
+    onCollapseMobileSheet
   } = props;
 
   const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
@@ -101,6 +106,8 @@ export function MapPane(props: Readonly<MapPaneProps>) {
   const closePlacePopupRef = useRef<() => void>(() => {});
 
   const { mapContainerRef, mapRef, map, isReady } = useGoogleMapInit({ apiKey, mapId, onMapReady });
+
+  useMapDragCollapseSheet(map, onMapUserMove);
 
   const click = useMapClickHandling({
     map,
@@ -237,6 +244,7 @@ export function MapPane(props: Readonly<MapPaneProps>) {
           <MapAreaSearch
             map={map}
             onMapPickCancel={onMapPickCancel}
+            onCollapseMobileSheet={onCollapseMobileSheet}
           />
         ) : null}
         {routeBuilt && (

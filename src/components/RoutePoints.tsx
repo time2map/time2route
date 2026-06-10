@@ -27,7 +27,10 @@ type RoutePointsProps = {
   routePath?: LatLng[];
   onRemoveStop?: (placeId: string) => void;
   onStopHover?: (placeId: string | null) => void;
+  onStopClick?: (placeId: string) => void;
+  onRoutePointsClick?: () => void;
   hoveredStopId?: string | null;
+  selectedStopId?: string | null;
 };
 
 export function RoutePoints({
@@ -39,13 +42,32 @@ export function RoutePoints({
   routePath,
   onRemoveStop,
   onStopHover,
-  hoveredStopId = null
+  onStopClick,
+  onRoutePointsClick,
+  hoveredStopId = null,
+  selectedStopId = null
 }: Readonly<RoutePointsProps>) {
   const placesById = new Map(routePlaces.map((place) => [place.id, place]));
   const sortedStops = sortRouteStopsByPath(stops, routePath);
+  const canFocusRoute = Boolean(onRoutePointsClick && routePath && routePath.length >= 2);
 
   return (
-    <div className="route-points">
+    <div
+      className={['route-points', canFocusRoute ? 'is-clickable' : ''].filter(Boolean).join(' ')}
+      role={canFocusRoute ? 'button' : undefined}
+      tabIndex={canFocusRoute ? 0 : undefined}
+      onClick={() => {
+        if (canFocusRoute) {
+          onRoutePointsClick?.();
+        }
+      }}
+      onKeyDown={(event) => {
+        if (!canFocusRoute) return;
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          onRoutePointsClick?.();
+        }
+      }}>
       <div className="rp-line">
         <StartPinIcon />
         <div className="rp-content">
@@ -68,10 +90,33 @@ export function RoutePoints({
             const stopName = stop.name ?? place?.name ?? 'Unnamed stop';
             const iconClass = resolveRouteStopIconClass(stop.id, place, alongRoutePlaceIds);
 
+            const isSelected = selectedStopId === stop.id;
+            const isHovered = hoveredStopId === stop.id;
+
             return (
               <div
-                className={`rp-stop${hoveredStopId === stop.id ? ' is-hovered' : ''}`}
+                className={[
+                  'rp-stop',
+                  isHovered ? 'is-hovered' : '',
+                  isSelected ? 'is-selected' : '',
+                  onStopClick ? 'is-clickable' : ''
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
                 key={stop.id}
+                role={onStopClick ? 'button' : undefined}
+                tabIndex={onStopClick ? 0 : undefined}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onStopClick?.(stop.id);
+                }}
+                onKeyDown={(event) => {
+                  if (!onStopClick) return;
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    onStopClick(stop.id);
+                  }
+                }}
                 onMouseEnter={() => onStopHover?.(stop.id)}
                 onMouseLeave={() => onStopHover?.(null)}>
                 <div className="rp-stop-inner">
@@ -87,7 +132,10 @@ export function RoutePoints({
                     type="button"
                     className="rp-stop-remove"
                     aria-label={`Remove ${stopName}`}
-                    onClick={() => onRemoveStop(stop.id)}>
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onRemoveStop(stop.id);
+                    }}>
                     ×
                   </button>
                 )}

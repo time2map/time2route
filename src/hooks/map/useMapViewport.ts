@@ -1,5 +1,6 @@
 import { useCallback, useRef } from 'react';
 import { getRouteSegmentAroundDistanceMeters } from '../../utils/routePolyline';
+import { fitMapToRoutePath } from './fitMapToRoutePath';
 import { getRouteFitPadding } from './getRouteFitPadding';
 
 type UseMapViewportParams = {
@@ -19,11 +20,7 @@ export function useMapViewport({ map, lastRoutePathRef }: UseMapViewportParams) 
       }
 
       fitRouteFrameRef.current = requestAnimationFrame(() => {
-        const bounds = new google.maps.LatLngBounds();
-        routePath.forEach((point) => {
-          bounds.extend(point);
-        });
-        map.fitBounds(bounds, getRouteFitPadding(map));
+        fitMapToRoutePath(map, routePath);
       });
     },
     [map]

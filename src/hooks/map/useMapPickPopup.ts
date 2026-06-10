@@ -77,6 +77,7 @@ export function useMapPickPopup({
       pick: mapPick,
       routeBuilt,
       isAddedToRoute: mapPickAddedToRoute,
+      onSuppressMapClick: ignoreNextClick,
       onAction: (action) => {
         if (action === 'close') {
           handlePickCancel();
@@ -99,6 +100,7 @@ export function useMapPickPopup({
     handlePickOpenGmaps,
     handleSetDestination,
     handleSetStart,
+    ignoreNextClick,
     mapPick,
     mapPickAddedToRoute,
     pickPinElRef,

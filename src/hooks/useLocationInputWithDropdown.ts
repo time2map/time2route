@@ -21,6 +21,7 @@ export type UseLocationInputWithDropdownParams = {
   onPlaceSelect?: (place: PlaceAutocompleteSelection) => void;
   onSelectSuggestion?: (suggestion: LocationSuggestion) => void;
   onFocus?: () => void;
+  onBlur?: () => void;
   onMapPickCancel?: () => void;
   isOpen?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -41,6 +42,7 @@ export function useLocationInputWithDropdown({
   onPlaceSelect,
   onSelectSuggestion,
   onFocus,
+  onBlur,
   onMapPickCancel,
   isOpen: isOpenControlled,
   onOpenChange
@@ -210,6 +212,7 @@ export function useLocationInputWithDropdown({
   );
 
   const handleInputBlur = useCallback(() => {
+    onBlur?.();
     globalThis.setTimeout(() => {
       if (document.activeElement?.closest(`[data-location-field="${inputId}"]`)) {
         return;
@@ -217,7 +220,7 @@ export function useLocationInputWithDropdown({
       setIsOpen(false);
       setHighlightedId(null);
     }, 120);
-  }, [inputId, setIsOpen]);
+  }, [inputId, onBlur, setIsOpen]);
 
   const highlightSuggestion = useCallback(
     (index: number) => {

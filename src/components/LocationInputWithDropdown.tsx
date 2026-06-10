@@ -5,6 +5,7 @@ import { LocationDropdown } from './LocationDropdown';
 
 export type LocationInputWithDropdownProps = {
   inputId: string;
+  inputRef?: React.RefObject<HTMLInputElement | null>;
   value: string;
   placeholder: string;
   map?: google.maps.Map | null;
@@ -16,6 +17,7 @@ export type LocationInputWithDropdownProps = {
   onPlaceSelect?: (place: PlaceAutocompleteSelection) => void;
   onSelectSuggestion?: (suggestion: LocationSuggestion) => void;
   onFocus?: () => void;
+  onBlur?: () => void;
   onMapPickCancel?: () => void;
   isOpen?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -23,6 +25,7 @@ export type LocationInputWithDropdownProps = {
 
 export function LocationInputWithDropdown({
   inputId,
+  inputRef: externalInputRef,
   value,
   placeholder,
   map = null,
@@ -34,6 +37,7 @@ export function LocationInputWithDropdown({
   onPlaceSelect,
   onSelectSuggestion,
   onFocus,
+  onBlur,
   onMapPickCancel,
   isOpen,
   onOpenChange
@@ -57,10 +61,18 @@ export function LocationInputWithDropdown({
     onPlaceSelect,
     onSelectSuggestion,
     onFocus,
+    onBlur,
     onMapPickCancel,
     isOpen,
     onOpenChange
   });
+
+  const setInputRef = (element: HTMLInputElement | null) => {
+    inputRef.current = element;
+    if (externalInputRef) {
+      externalInputRef.current = element;
+    }
+  };
 
   return (
     <div
@@ -68,7 +80,7 @@ export function LocationInputWithDropdown({
       data-location-field={inputId}>
       <div className="pin-left">{pinIcon}</div>
       <input
-        ref={inputRef}
+        ref={setInputRef}
         id={inputId}
         value={value}
         onChange={(event) => inputProps.onChange(event.target.value)}

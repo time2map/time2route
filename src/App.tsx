@@ -6,10 +6,14 @@ import { MapPane } from './components/MapPane';
 import { Sidebar } from './components/Sidebar';
 import { OfflineNetworkNotifier } from './components/OfflineNetworkNotifier';
 import { ErrorToastProvider } from './context/ErrorToastContext';
+import { fitMapToRoutePath } from './hooks/map/fitMapToRoutePath';
 import { useOnlineStatus } from './hooks/useOnlineStatus';
 import { useCustomRouteStopDetails } from './hooks/useCustomRouteStopDetails';
 import { getDistanceAlongPolylineMeters } from './utils/routePolyline';
 import { sortRouteStopsByPath } from './utils/routeStopOrder';
+import { addSearchHistoryEntry } from './utils/searchHistory';
+import type { ExpandedSheetSnap } from './utils/mobileRouteSheetSnap';
+import type { SearchHistoryEntry } from './utils/searchHistory';
 import type { ActivityMode, ElevationStats, InterestingPlace, LatLng, RouteIntermediatePoint } from './utils/types';
 
 type RouteInfo = {
@@ -76,9 +80,21 @@ function App() {
     distanceKm: number;
     key: number;
   } | null>(null);
+  const [mobileSheetSnap, setMobileSheetSnap] = useState<ExpandedSheetSnap>('intermediate');
+  const [isMobileSheetExpanded, setIsMobileSheetExpanded] = useState(true);
 
   const handleBuildRoute = useCallback(() => {
     if (!isOnline) return;
+
+    addSearchHistoryEntry({
+      from,
+      to,
+      mode,
+      fromLat: startPoint?.lat,
+      fromLng: startPoint?.lng,
+      toLat: destinationPoint?.lat,
+      toLng: destinationPoint?.lng
+    });
 
     setBuiltRouteParams({
       origin: from,
@@ -101,7 +117,9 @@ function App() {
       interestingPlaces: [],
       routePath: []
     });
-  }, [from, isOnline, mode, to]);
+    setMobileSheetSnap('peek');
+    setIsMobileSheetExpanded(true);
+  }, [destinationPoint, from, isOnline, mode, startPoint, to]);
 
   const handleReset = useCallback(() => {
     setRouteBuilt(false);
@@ -118,6 +136,8 @@ function App() {
     setHighlightedRouteDistanceKm(null);
     setIsElevationChartFocused(false);
     setRouteChartZoomTarget(null);
+    setMobileSheetSnap('intermediate');
+    setIsMobileSheetExpanded(true);
     setRouteInfo({
       status: 'idle',
       distance: '—',
@@ -165,6 +185,59 @@ function App() {
 
   const handleSelectPlace = useCallback((placeId: string | null) => {
     setSelectedPlace(placeId);
+
+    if (placeId) {
+      setMobileSheetSnap('peek');
+      setIsMobileSheetExpanded(false);
+    }
+  }, []);
+
+  const handleRoutePointsClick = useCallback(() => {
+    if (!mapInstance || routeInfo.routePath.length < 2) {
+      return;
+    }
+
+    setSelectedPlace(null);
+    fitMapToRoutePath(mapInstance, routeInfo.routePath);
+  }, [mapInstance, routeInfo.routePath]);
+
+  const handleCollapseMobileSheetToPeek = useCallback(() => {
+    setMobileSheetSnap('peek');
+    setIsMobileSheetExpanded(true);
+  }, []);
+
+  const handleMapUserMove = handleCollapseMobileSheetToPeek;
+
+  const handleSearchHistorySelect = useCallback((entry: SearchHistoryEntry) => {
+    setFrom(entry.from);
+    setTo(entry.to);
+    setMode(entry.mode);
+    setEndpointSelectionPending(true);
+
+    if (
+      typeof entry.fromLat === 'number' &&
+      typeof entry.fromLng === 'number' &&
+      Number.isFinite(entry.fromLat) &&
+      Number.isFinite(entry.fromLng)
+    ) {
+      setStartPoint({ lat: entry.fromLat, lng: entry.fromLng, address: entry.from });
+    } else {
+      setStartPoint(null);
+    }
+
+    if (
+      typeof entry.toLat === 'number' &&
+      typeof entry.toLng === 'number' &&
+      Number.isFinite(entry.toLat) &&
+      Number.isFinite(entry.toLng)
+    ) {
+      setDestinationPoint({ lat: entry.toLat, lng: entry.toLng, address: entry.to });
+    } else {
+      setDestinationPoint(null);
+    }
+
+    setMapPickMode(false);
+    setMapPickTarget(null);
   }, []);
 
   const handleHoveredPlaceChange = useCallback((placeId: string | null) => {
@@ -377,13 +450,21 @@ function App() {
           onReset={handleReset}
           onMapPickFocusTarget={handleMapPickFocusTarget}
           onMapPickCancel={handleMapPickCancel}
+          mapPickTarget={mapPickTarget}
           onRemoveStop={handleRemovePlaceFromRoute}
           onStopHover={handleHoveredPlaceChange}
+          onStopClick={handleSelectPlace}
+          onRoutePointsClick={handleRoutePointsClick}
           hoveredStopId={hoveredPlaceId}
           onElevationPointHover={handleElevationPointHover}
           onElevationChartFocusChange={handleElevationChartFocusChange}
           onElevationPointClick={handleElevationPointClick}
           isOnline={isOnline}
+          mobileSheetSnap={mobileSheetSnap}
+          isMobileSheetExpanded={isMobileSheetExpanded}
+          onMobileSheetExpandedChange={setIsMobileSheetExpanded}
+          onMobileSheetSnapChange={setMobileSheetSnap}
+          onSearchHistorySelect={handleSearchHistorySelect}
         />
         <MapPane
           routeBuilt={routeBuilt}
@@ -415,6 +496,8 @@ function App() {
           highlightedRouteDistanceKm={highlightedRouteDistanceKm}
           elevationChartFocused={isElevationChartFocused}
           routeChartZoomTarget={routeChartZoomTarget}
+          onMapUserMove={handleMapUserMove}
+          onCollapseMobileSheet={handleCollapseMobileSheetToPeek}
         />
       </section>
     </main>

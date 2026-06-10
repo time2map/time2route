@@ -1,12 +1,16 @@
 import { useCallback, useState } from 'react';
 import type { PlaceAutocompleteSelection } from '../api/placeAutocomplete';
 import { useLocationInputWithDropdown } from '../hooks/useLocationInputWithDropdown';
+import { useMediaQuery } from '../hooks/useMediaQuery';
 import { flyMapToPlace } from '../utils/flyMapToPlace';
 import { LocationDropdown } from './LocationDropdown';
+
+const MOBILE_MEDIA_QUERY = '(max-width: 768px)';
 
 type MapAreaSearchProps = {
   map: google.maps.Map | null;
   onMapPickCancel?: () => void;
+  onCollapseMobileSheet?: () => void;
 };
 
 function MapSearchIcon() {
@@ -18,7 +22,12 @@ function MapSearchIcon() {
   );
 }
 
-export function MapAreaSearch({ map, onMapPickCancel }: Readonly<MapAreaSearchProps>) {
+export function MapAreaSearch({
+  map,
+  onMapPickCancel,
+  onCollapseMobileSheet
+}: Readonly<MapAreaSearchProps>) {
+  const isMobile = useMediaQuery(MOBILE_MEDIA_QUERY);
   const [query, setQuery] = useState('');
 
   const handlePlaceSelect = useCallback(
@@ -54,6 +63,13 @@ export function MapAreaSearch({ map, onMapPickCancel }: Readonly<MapAreaSearchPr
     inputRef.current?.focus();
   }, [inputRef]);
 
+  const handleFocus = useCallback(() => {
+    if (isMobile) {
+      onCollapseMobileSheet?.();
+    }
+    inputProps.onFocus();
+  }, [inputProps.onFocus, isMobile, onCollapseMobileSheet]);
+
   if (!map) {
     return null;
   }
@@ -69,7 +85,7 @@ export function MapAreaSearch({ map, onMapPickCancel }: Readonly<MapAreaSearchPr
           id="map-area-search"
           value={query}
           onChange={(event) => inputProps.onChange(event.target.value)}
-          onFocus={inputProps.onFocus}
+          onFocus={handleFocus}
           onPointerDown={inputProps.onPointerDown}
           onBlur={inputProps.onBlur}
           onKeyDown={inputProps.onKeyDown}

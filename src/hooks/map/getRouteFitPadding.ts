@@ -10,10 +10,14 @@ export function getRouteFitPadding(map: google.maps.Map): google.maps.Padding {
     };
   }
 
-  const mapHeight = map.getDiv().getBoundingClientRect().height;
+  const mapRect = map.getDiv().getBoundingClientRect();
+  const mapHeight = mapRect.height;
   const sheetElement = document.querySelector('.sidebar-mobile-sheet') as HTMLElement | null;
-  const sheetHeight = sheetElement?.getBoundingClientRect().height ?? 0;
-  const bottomPadding = Math.min(Math.round(sheetHeight + 24), Math.round(mapHeight * 0.72));
+  const sheetRect = sheetElement?.getBoundingClientRect();
+  const visibleSheetOverlap = sheetRect
+    ? Math.max(0, mapRect.bottom - Math.max(mapRect.top, sheetRect.top))
+    : 0;
+  const bottomPadding = Math.min(Math.round(visibleSheetOverlap + 24), Math.round(mapHeight * 0.72));
 
   return {
     top: 72,

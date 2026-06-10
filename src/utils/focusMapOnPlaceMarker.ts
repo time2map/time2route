@@ -56,9 +56,9 @@ export function computePlaceMarkerPanDownPx(
   const bottom = basePadding.bottom ?? 0;
   const visibleHeight = Math.max(200, mapHeight - top - bottom);
   const isMobile = isMobileViewport();
-  const ratio = isMobile ? 0.07 : 0.17;
+  const ratio = isMobile ? 0.15 : 0.17;
 
-  return Math.round(Math.min(visibleHeight * ratio, isMobile ? 64 : 150));
+  return Math.round(Math.min(visibleHeight * ratio, isMobile ? 110 : 150));
 }
 
 export function focusMapOnPlaceMarker(

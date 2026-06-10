@@ -91,13 +91,19 @@ export function isMobileViewport() {
   return globalThis.window.matchMedia('(max-width: 768px)').matches;
 }
 
-export type ExpandedSheetSnap = 'intermediate' | 'middle' | 'penultimate' | 'markerSelected';
+export type ExpandedSheetSnap =
+  | 'intermediate'
+  | 'middle'
+  | 'penultimate'
+  | 'markerSelected'
+  | 'peek';
 
 export function resolveExpandedSnapHeight(
   snapPoints: SheetSnapPoints,
   expandedSnap: ExpandedSheetSnap
 ) {
   switch (expandedSnap) {
+    case 'peek':
     case 'markerSelected':
       return clamp(MARKER_SELECTED_SHEET_HEIGHT_PX, snapPoints.min, snapPoints.max);
     case 'penultimate':

@@ -12,6 +12,7 @@ type SyncMapPickPopupParams = {
   routeBuilt: boolean;
   isAddedToRoute?: boolean;
   onAction: (action: MapPickPopupAction) => void;
+  onSuppressMapClick?: () => void;
 };
 
 function shouldShowPickAddress(pick: MapPickPoint): boolean {
@@ -40,13 +41,16 @@ function renderPickActionsMarkup(routeBuilt: boolean, isAddedToRoute: boolean): 
   `;
 }
 
+const CAPTURE_EVENT_OPTIONS: AddEventListenerOptions = { capture: true };
+
 function createMapPickPopup(params: {
   pick: MapPickPoint;
   routeBuilt: boolean;
   isAddedToRoute: boolean;
   onAction: (action: MapPickPopupAction) => void;
+  onSuppressMapClick?: () => void;
 }): HTMLDivElement {
-  const { pick, routeBuilt, isAddedToRoute, onAction } = params;
+  const { pick, routeBuilt, isAddedToRoute, onAction, onSuppressMapClick } = params;
   const addressMarkup = shouldShowPickAddress(pick)
     ? `<div class="map-pick-popup-address">${escapePlaceHtml(pick.address)}</div>`
     : '';
@@ -62,10 +66,13 @@ function createMapPickPopup(params: {
 
   const stopMapClickThrough = (event: Event) => {
     event.stopPropagation();
+    onSuppressMapClick?.();
   };
 
   popup.addEventListener('click', (event) => {
     event.stopPropagation();
+    onSuppressMapClick?.();
+
     const target = (event.target as HTMLElement).closest('[data-action]') as HTMLElement | null;
     if (!target) return;
 
@@ -83,8 +90,9 @@ function createMapPickPopup(params: {
     }
   });
 
-  popup.addEventListener('mousedown', stopMapClickThrough);
-  popup.addEventListener('pointerdown', stopMapClickThrough);
+  for (const eventName of ['touchstart', 'touchend', 'pointerdown', 'mousedown'] as const) {
+    popup.addEventListener(eventName, stopMapClickThrough, CAPTURE_EVENT_OPTIONS);
+  }
 
   return popup;
 }
@@ -118,7 +126,8 @@ export function syncMapPickPopupOnPin({
   pick,
   routeBuilt,
   isAddedToRoute = false,
-  onAction
+  onAction,
+  onSuppressMapClick
 }: SyncMapPickPopupParams): void {
   const existing = pinEl.querySelector('.map-pick-popup');
   if (existing) {
@@ -135,7 +144,8 @@ export function syncMapPickPopupOnPin({
       pick,
       routeBuilt,
       isAddedToRoute,
-      onAction
+      onAction,
+      onSuppressMapClick
     })
   );
 }
