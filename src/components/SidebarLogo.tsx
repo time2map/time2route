@@ -1,4 +1,4 @@
-import logoIcon from '../assets/LOGO-FIN.svg';
+import logoIcon from '../assets/time2Route.svg';
 
 export function SidebarLogo() {
   return (
