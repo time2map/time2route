@@ -13,43 +13,47 @@ type MobileRouteSheetProps = {
   onReset?: () => void;
 };
 
-export const MOBILE_SHEET_SNAP_POINTS = [0, 0.22, 0.5, 0.9] as const;
+export const MOBILE_SHEET_SNAP_POINTS = [0, 0.22,0.5, 1] as const;
+
+export const MOBILE_SHEET_ANIMATION_MS = 350;
 
 export const MOBILE_SHEET_MAP_MOVE_SNAP_INDEX = 1;
+
+export const MOBILE_SHEET_MIDDLE_SNAP_INDEX = 2;
+
+const MOBILE_SHEET_FULL_SNAP_INDEX = MOBILE_SHEET_SNAP_POINTS.length - 1;
 
 function getSnapIndex(expanded: boolean, expandedSnap: ExpandedSheetSnap) {
   if (!expanded) {
     return 0;
   }
 
-  switch (expandedSnap) {
-    case 'peek':
-    case 'markerSelected':
-      return MOBILE_SHEET_MAP_MOVE_SNAP_INDEX;
-    case 'middle':
-      return 2;
-    case 'penultimate':
-      return 3;
-    default:
-      return 2;
+  if (expandedSnap === 'penultimate') {
+    return MOBILE_SHEET_FULL_SNAP_INDEX;
   }
+
+  if (expandedSnap === 'middle' || expandedSnap === 'intermediate') {
+    return MOBILE_SHEET_MIDDLE_SNAP_INDEX;
+  }
+
+  return MOBILE_SHEET_MAP_MOVE_SNAP_INDEX;
 }
 
 function snapIndexToExpandedSnap(snapIndex: number): ExpandedSheetSnap {
-  if (snapIndex <= MOBILE_SHEET_MAP_MOVE_SNAP_INDEX) {
-    return 'peek';
+  if (snapIndex >= MOBILE_SHEET_FULL_SNAP_INDEX) {
+    return 'penultimate';
   }
 
-  if (snapIndex === 2) {
-    return 'intermediate';
+  if (snapIndex >= MOBILE_SHEET_MIDDLE_SNAP_INDEX) {
+    return 'middle';
   }
 
-  return 'penultimate';
+  return 'peek';
 }
 
 export function MobileRouteSheet({
   expanded,
-  expandedSnap = 'intermediate',
+  expandedSnap = 'peek',
   title,
   children,
   onExpandedChange,

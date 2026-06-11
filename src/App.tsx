@@ -5,14 +5,18 @@ import './AppLayout.mobile.css';
 import { MapPane } from './components/MapPane';
 import { Sidebar } from './components/Sidebar';
 import { OfflineNetworkNotifier } from './components/OfflineNetworkNotifier';
+import { GreetingHintEffect } from './components/GreetingHintEffect';
+import { RouteStopsHintEffect } from './components/RouteStopsHintEffect';
 import { ErrorToastProvider } from './context/ErrorToastContext';
+import { markGreetingCardDismissed } from './utils/greetingCard';
 import { fitMapToRoutePath } from './hooks/map/fitMapToRoutePath';
 import { useOnlineStatus } from './hooks/useOnlineStatus';
 import { useCustomRouteStopDetails } from './hooks/useCustomRouteStopDetails';
 import { getDistanceAlongPolylineMeters } from './utils/routePolyline';
 import { sortRouteStopsByPath } from './utils/routeStopOrder';
+import { blurRouteLocationInput } from './utils/locationInputs';
 import { addSearchHistoryEntry } from './utils/searchHistory';
-import type { ExpandedSheetSnap } from './utils/mobileRouteSheetSnap';
+import { isMobileViewport, type ExpandedSheetSnap } from './utils/mobileRouteSheetSnap';
 import type { SearchHistoryEntry } from './utils/searchHistory';
 import type { ActivityMode, ElevationStats, InterestingPlace, LatLng, RouteIntermediatePoint } from './utils/types';
 
@@ -30,7 +34,12 @@ type RouteEndpointPoint = {
   lat: number;
   lng: number;
   address: string;
+  source?: 'current-location';
 };
+
+function isCurrentLocationPlace(place: PlaceAutocompleteSelection): boolean {
+  return place.id.startsWith('current-location-');
+}
 
 type MapPickTarget = 'start' | 'destination' | null;
 
@@ -56,13 +65,13 @@ function App() {
   } | null>(null);
   const [selectedPlace, setSelectedPlace] = useState<string | null>(null);
   const [hoveredPlaceId, setHoveredPlaceId] = useState<string | null>(null);
-  const [from, setFrom] = useState('Amsterdam Centraal');
-  const [to, setTo] = useState('Vondelpark, Amsterdam');
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
   const [startPoint, setStartPoint] = useState<RouteEndpointPoint | null>(null);
   const [destinationPoint, setDestinationPoint] = useState<RouteEndpointPoint | null>(null);
   const [mapPickMode, setMapPickMode] = useState(false);
   const [mapPickTarget, setMapPickTarget] = useState<MapPickTarget>(null);
-  const [endpointSelectionPending, setEndpointSelectionPending] = useState(true);
+  const [mobileExplicitMapPick, setMobileExplicitMapPick] = useState(false);
   const [mapInstance, setMapInstance] = useState<google.maps.Map | null>(null);
   const [routeInfo, setRouteInfo] = useState<RouteInfo>({
     status: 'idle',
@@ -80,8 +89,19 @@ function App() {
     distanceKm: number;
     key: number;
   } | null>(null);
-  const [mobileSheetSnap, setMobileSheetSnap] = useState<ExpandedSheetSnap>('intermediate');
+  const [mobileSheetSnap, setMobileSheetSnap] = useState<ExpandedSheetSnap>('peek');
   const [isMobileSheetExpanded, setIsMobileSheetExpanded] = useState(true);
+  const [routeStopsHintActive, setRouteStopsHintActive] = useState(false);
+  const [greetingHighlightActive, setGreetingHighlightActive] = useState(false);
+
+  const dismissGreeting = useCallback(() => {
+    markGreetingCardDismissed();
+    setGreetingHighlightActive(false);
+  }, []);
+
+  const dismissRouteStopsHint = useCallback(() => {
+    setRouteStopsHintActive(false);
+  }, []);
 
   const handleBuildRoute = useCallback(() => {
     if (!isOnline) return;
@@ -105,7 +125,6 @@ function App() {
     });
     setBuildNonce((previous) => previous + 1);
     setRouteBuilt(true);
-    setEndpointSelectionPending(false);
     setHighlightedRouteDistanceKm(null);
     setIsElevationChartFocused(false);
     setRouteChartZoomTarget(null);
@@ -122,6 +141,7 @@ function App() {
   }, [destinationPoint, from, isOnline, mode, startPoint, to]);
 
   const handleReset = useCallback(() => {
+    dismissRouteStopsHint();
     setRouteBuilt(false);
     setBuiltRouteParams(null);
     setSelectedPlace(null);
@@ -132,11 +152,11 @@ function App() {
     setDestinationPoint(null);
     setMapPickMode(false);
     setMapPickTarget(null);
-    setEndpointSelectionPending(true);
+    setMobileExplicitMapPick(false);
     setHighlightedRouteDistanceKm(null);
     setIsElevationChartFocused(false);
     setRouteChartZoomTarget(null);
-    setMobileSheetSnap('intermediate');
+    setMobileSheetSnap('peek');
     setIsMobileSheetExpanded(true);
     setRouteInfo({
       status: 'idle',
@@ -146,7 +166,7 @@ function App() {
       interestingPlaces: [],
       routePath: []
     });
-  }, []);
+  }, [dismissRouteStopsHint]);
 
   const elevationProfileRef = useRef(routeInfo.elevation?.profile);
   elevationProfileRef.current = routeInfo.elevation?.profile;
@@ -184,13 +204,17 @@ function App() {
   }, []);
 
   const handleSelectPlace = useCallback((placeId: string | null) => {
+    if (placeId) {
+      dismissRouteStopsHint();
+    }
+
     setSelectedPlace(placeId);
 
     if (placeId) {
       setMobileSheetSnap('peek');
       setIsMobileSheetExpanded(false);
     }
-  }, []);
+  }, [dismissRouteStopsHint]);
 
   const handleRoutePointsClick = useCallback(() => {
     if (!mapInstance || routeInfo.routePath.length < 2) {
@@ -212,7 +236,6 @@ function App() {
     setFrom(entry.from);
     setTo(entry.to);
     setMode(entry.mode);
-    setEndpointSelectionPending(true);
 
     if (
       typeof entry.fromLat === 'number' &&
@@ -333,25 +356,56 @@ function App() {
     }));
   }, [builtRouteParams]);
 
+  const expandMobileSheetForPlanner = useCallback(() => {
+    if (!isMobileViewport()) {
+      return;
+    }
+
+    setMobileSheetSnap('penultimate');
+    setIsMobileSheetExpanded(true);
+  }, []);
+
+  const finishMobileMapPick = useCallback(() => {
+    setMobileExplicitMapPick(false);
+    expandMobileSheetForPlanner();
+  }, [expandMobileSheetForPlanner]);
+
   const handleMapPickSetStart = useCallback((point: RouteEndpointPoint) => {
     setStartPoint(point);
     setFrom(point.address);
+    blurRouteLocationInput('start');
+
+    if (mobileExplicitMapPick) {
+      setMapPickMode(false);
+      setMapPickTarget(null);
+      finishMobileMapPick();
+      return;
+    }
+
+    if (!to.trim()) {
+      setMapPickTarget('destination');
+      setMapPickMode(true);
+      return;
+    }
+
     setMapPickMode(false);
     setMapPickTarget(null);
-    setEndpointSelectionPending(true);
-  }, []);
+  }, [finishMobileMapPick, mobileExplicitMapPick, to]);
 
   const handleMapPickSetDestination = useCallback((point: RouteEndpointPoint) => {
     setDestinationPoint(point);
     setTo(point.address);
+    blurRouteLocationInput('destination');
     setMapPickMode(false);
     setMapPickTarget(null);
-    setEndpointSelectionPending(true);
-  }, []);
+
+    if (mobileExplicitMapPick) {
+      finishMobileMapPick();
+    }
+  }, [finishMobileMapPick, mobileExplicitMapPick]);
 
   const handleFromChange = useCallback((value: string) => {
     setFrom(value);
-    setEndpointSelectionPending(true);
     if (!value.trim()) {
       setStartPoint(null);
     }
@@ -359,7 +413,6 @@ function App() {
 
   const handleToChange = useCallback((value: string) => {
     setTo(value);
-    setEndpointSelectionPending(true);
     if (!value.trim()) {
       setDestinationPoint(null);
     }
@@ -368,19 +421,27 @@ function App() {
   const handleFromPlaceSelect = useCallback((place: PlaceAutocompleteSelection) => {
     const address = place.address ?? place.name;
     setFrom(address);
-    setStartPoint({ lat: place.lat, lng: place.lng, address });
+    setStartPoint({
+      lat: place.lat,
+      lng: place.lng,
+      address,
+      source: isCurrentLocationPlace(place) ? 'current-location' : undefined
+    });
     setMapPickMode(false);
     setMapPickTarget(null);
-    setEndpointSelectionPending(true);
   }, []);
 
   const handleToPlaceSelect = useCallback((place: PlaceAutocompleteSelection) => {
     const address = place.address ?? place.name;
     setTo(address);
-    setDestinationPoint({ lat: place.lat, lng: place.lng, address });
+    setDestinationPoint({
+      lat: place.lat,
+      lng: place.lng,
+      address,
+      source: isCurrentLocationPlace(place) ? 'current-location' : undefined
+    });
     setMapPickMode(false);
     setMapPickTarget(null);
-    setEndpointSelectionPending(true);
   }, []);
 
   const handleSwapLocations = useCallback(() => {
@@ -388,7 +449,6 @@ function App() {
     setTo(from);
     setStartPoint(destinationPoint);
     setDestinationPoint(startPoint);
-    setEndpointSelectionPending(true);
   }, [destinationPoint, from, startPoint, to]);
 
   const handleMapReady = useCallback((map: google.maps.Map) => {
@@ -398,6 +458,7 @@ function App() {
   const handleMapPickCancel = useCallback(() => {
     setMapPickMode(false);
     setMapPickTarget(null);
+    setMobileExplicitMapPick(false);
   }, []);
 
   const handleMapPickFocusTarget = useCallback((target: Exclude<MapPickTarget, null>) => {
@@ -405,12 +466,30 @@ function App() {
     setMapPickMode(true);
   }, []);
 
+  const handleMobileMapPickActivate = useCallback(() => {
+    setMobileExplicitMapPick(true);
+  }, []);
+
   const mapPickDirectFillTarget = useMemo((): MapPickTarget => {
-    if (routeBuilt) return null;
-    if (mapPickTarget === 'start' && !from.trim()) return 'start';
-    if (mapPickTarget === 'destination' && !to.trim()) return 'destination';
+    if (routeBuilt || !mapPickTarget) {
+      return null;
+    }
+
+    const isDirectFillActive = isMobileViewport() ? mobileExplicitMapPick : mapPickMode;
+    if (!isDirectFillActive) {
+      return null;
+    }
+
+    if (mapPickTarget === 'start' && !from.trim()) {
+      return 'start';
+    }
+
+    if (mapPickTarget === 'destination' && !to.trim()) {
+      return 'destination';
+    }
+
     return null;
-  }, [from, mapPickTarget, routeBuilt, to]);
+  }, [from, mapPickMode, mapPickTarget, mobileExplicitMapPick, routeBuilt, to]);
 
   const routeIntermediates = builtRouteParams?.intermediates ?? EMPTY_INTERMEDIATES;
   const { customStopPlaces } = useCustomRouteStopDetails(
@@ -427,6 +506,19 @@ function App() {
 
   return (
     <ErrorToastProvider>
+      <GreetingHintEffect
+        routeBuilt={routeBuilt}
+        mapReady={mapInstance !== null}
+        onGreetingActiveChange={setGreetingHighlightActive}
+        onMobileSheetSnapChange={setMobileSheetSnap}
+        onMobileSheetExpandedChange={setIsMobileSheetExpanded}
+      />
+      <RouteStopsHintEffect
+        routeBuilt={routeBuilt}
+        routeStatus={routeInfo.status}
+        interestingPlacesCount={routeInfo.interestingPlaces.length}
+        onHintActiveChange={setRouteStopsHintActive}
+      />
       <OfflineNetworkNotifier />
       <main className={`app-shell ${routeBuilt ? 'app-state-route' : 'app-state-empty'}`}>
       <section className="main-area">
@@ -450,7 +542,8 @@ function App() {
           onReset={handleReset}
           onMapPickFocusTarget={handleMapPickFocusTarget}
           onMapPickCancel={handleMapPickCancel}
-          mapPickTarget={mapPickTarget}
+          onMobileMapPickActivate={handleMobileMapPickActivate}
+          mapPickHighlightTarget={mapPickDirectFillTarget}
           onRemoveStop={handleRemovePlaceFromRoute}
           onStopHover={handleHoveredPlaceChange}
           onStopClick={handleSelectPlace}
@@ -465,11 +558,16 @@ function App() {
           onMobileSheetExpandedChange={setIsMobileSheetExpanded}
           onMobileSheetSnapChange={setMobileSheetSnap}
           onSearchHistorySelect={handleSearchHistorySelect}
+          fromSelected={startPoint !== null && Boolean(from.trim())}
+          toSelected={destinationPoint !== null && Boolean(to.trim())}
+          fromIsCurrentLocation={startPoint?.source === 'current-location'}
+          toIsCurrentLocation={destinationPoint?.source === 'current-location'}
+          greetingHighlightActive={greetingHighlightActive}
+          onDismissGreeting={dismissGreeting}
         />
         <MapPane
           routeBuilt={routeBuilt}
           routeStatus={routeInfo.status}
-          hideEndpointMarkers={routeInfo.status === 'ready' && !endpointSelectionPending}
           buildNonce={buildNonce}
           mode={builtRouteParams?.mode ?? mode}
           origin={builtRouteParams?.origin ?? ''}
@@ -498,6 +596,7 @@ function App() {
           routeChartZoomTarget={routeChartZoomTarget}
           onMapUserMove={handleMapUserMove}
           onCollapseMobileSheet={handleCollapseMobileSheetToPeek}
+          routeStopsHintActive={routeStopsHintActive}
         />
       </section>
     </main>

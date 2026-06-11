@@ -4,7 +4,6 @@ import type { RouteEndpointPoint } from './mapPaneTypes';
 
 type UseEndpointMarkersParams = {
   map: google.maps.Map | null;
-  hideEndpointMarkers: boolean;
   elevationChartFocused: boolean;
   routeStatus: string;
   startPoint: RouteEndpointPoint | null;
@@ -13,7 +12,6 @@ type UseEndpointMarkersParams = {
 
 export function useEndpointMarkers({
   map,
-  hideEndpointMarkers,
   elevationChartFocused,
   routeStatus,
   startPoint,
@@ -25,7 +23,7 @@ export function useEndpointMarkers({
   useEffect(() => {
     if (!map) return;
 
-    if (hideEndpointMarkers || elevationChartFocused) {
+    if (elevationChartFocused) {
       if (startMarkerRef.current) {
         startMarkerRef.current.map = null;
         startMarkerRef.current = null;
@@ -88,5 +86,5 @@ export function useEndpointMarkers({
     return () => {
       disposed = true;
     };
-  }, [destinationPoint, elevationChartFocused, hideEndpointMarkers, map, routeStatus, startPoint]);
+  }, [destinationPoint, elevationChartFocused, map, routeStatus, startPoint]);
 }

@@ -20,7 +20,12 @@ function findNearestSnapIndex(
   ).snapIndex;
 }
 
-export function MobileLocationDragGroup({ children }: Readonly<{ children: ReactNode }>) {
+type MobileLocationDragGroupProps = {
+  children: ReactNode;
+  className?: string;
+};
+
+export function MobileLocationDragGroup({ children, className }: Readonly<MobileLocationDragGroupProps>) {
   const sheet = Sheet.useContext();
   const dragStateRef = useRef<DragState | null>(null);
   const groupRef = useRef<HTMLDivElement>(null);
@@ -43,7 +48,11 @@ export function MobileLocationDragGroup({ children }: Readonly<{ children: React
     }
 
     const target = event.target as HTMLElement;
-    if (target.closest('button, a, [role="button"]')) {
+    if (
+      target.closest(
+        'button, a, [role="button"], input, textarea, select, [contenteditable="true"], [data-location-field]'
+      )
+    ) {
       return;
     }
 
@@ -121,7 +130,7 @@ export function MobileLocationDragGroup({ children }: Readonly<{ children: React
   return (
     <div
       ref={groupRef}
-      className="sidebar-mobile-location-group sheet-location-drag-group"
+      className={`sidebar-mobile-location-group sheet-location-drag-group${className ? ` ${className}` : ''}`}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}

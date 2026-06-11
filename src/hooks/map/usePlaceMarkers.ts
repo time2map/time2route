@@ -22,6 +22,7 @@ type UsePlaceMarkersParams = {
   onAddPlaceToRoute: (place: InterestingPlace) => void;
   onRemovePlaceFromRoute: (placeId: string) => void;
   clearPickMarker: () => void;
+  routeStopsHintActive?: boolean;
 };
 
 export function usePlaceMarkers(params: UsePlaceMarkersParams) {
@@ -37,7 +38,8 @@ export function usePlaceMarkers(params: UsePlaceMarkersParams) {
     onHoveredPlaceChange,
     onAddPlaceToRoute,
     onRemovePlaceFromRoute,
-    clearPickMarker
+    clearPickMarker,
+    routeStopsHintActive = false
   } = params;
 
   const { mountPlaceMarkerElement, mountCustomRouteStopMarker, createPlaceMarkers, resolvePlaceColor } =
@@ -77,6 +79,7 @@ export function usePlaceMarkers(params: UsePlaceMarkersParams) {
       selectedPlace,
       hoveredPlaceId: popup.hoveredPlaceIdRef.current,
       routeStopIds: new Set(intermediates.map((stop) => stop.id)),
+      routeStopsHintActive,
       placePhotos: placePhotoCache,
       onPlaceMarkerClick: popup.handlePlaceMarkerClick,
       onPopupAction: popup.handlePlacePopupAction
@@ -100,6 +103,7 @@ export function usePlaceMarkers(params: UsePlaceMarkersParams) {
     placePhotoCache,
     popup,
     resolvePlaceColor,
+    routeStopsHintActive,
     selectedPlace
   ]);
 
@@ -109,6 +113,7 @@ export function usePlaceMarkers(params: UsePlaceMarkersParams) {
       selectedPlace,
       hoveredPlaceId: popup.hoveredPlaceIdRef.current,
       routeStopIds: new Set(intermediates.map((stop) => stop.id)),
+      routeStopsHintActive,
       placePhotos: placePhotoCache,
       onPlaceMarkerClick: popup.handlePlaceMarkerClick,
       onPopupAction: popup.handlePlacePopupAction
@@ -125,6 +130,7 @@ export function usePlaceMarkers(params: UsePlaceMarkersParams) {
     mountCustomRouteStopMarker,
     placePhotoCache,
     popup,
+    routeStopsHintActive,
     selectedPlace
   ]);
 
@@ -160,6 +166,7 @@ export function usePlaceMarkers(params: UsePlaceMarkersParams) {
     syncCustomRouteStopMarkerElements();
   }, [
     popup.placePopupId,
+    routeStopsHintActive,
     selectedPlace,
     hoveredPlaceId,
     syncCustomRouteStopMarkerElements,

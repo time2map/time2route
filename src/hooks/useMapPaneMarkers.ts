@@ -38,6 +38,7 @@ export type PlaceMarkerPopupContext = {
   selectedPlace: string | null;
   hoveredPlaceId: string | null;
   routeStopIds: Set<string>;
+  routeStopsHintActive?: boolean;
   placePhotos: Record<string, PlacePhotoState>;
   onPlaceMarkerClick: (placeId: string) => void;
   onPopupAction: (action: PlaceMapPopupAction, place: InterestingPlace) => void;
@@ -180,12 +181,17 @@ function createPlaceMarkerElement(params: {
     showMapPopup
   );
 
+  const isRouteStop = popupContext.routeStopIds.has(place.id);
+  const showHintHighlight = Boolean(popupContext.routeStopsHintActive);
+
   const element = document.createElement('div');
   element.className = [
     'place-marker-wrapper',
     `place-marker-${categoryMeta.category}`,
     params.active ? 'is-active' : '',
-    isHovered ? 'is-hovered' : ''
+    isHovered ? 'is-hovered' : '',
+    isRouteStop ? 'is-route-stop' : '',
+    showHintHighlight ? 'is-hint-active' : ''
   ]
     .filter(Boolean)
     .join(' ');
@@ -198,7 +204,8 @@ function createPlaceMarkerElement(params: {
     index: params.index,
     title: place.name,
     color: params.color,
-    active: params.active
+    active: params.active || isRouteStop,
+    routeStop: isRouteStop
   });
 
   const popupParams = {
@@ -209,7 +216,7 @@ function createPlaceMarkerElement(params: {
     onAction: popupContext.onPopupAction
   };
 
-  element.appendChild(createPlaceNameLabel(place, params.index, params.color));
+  element.appendChild(createPlaceNameLabel(place, params.index, params.color, isRouteStop));
   element.appendChild(createPlaceHoverTip(place, params.color));
   element.appendChild(pinElement);
 

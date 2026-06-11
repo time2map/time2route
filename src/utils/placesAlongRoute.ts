@@ -4,16 +4,14 @@ import type { ActivityMode, InterestingPlace, LatLng, PlaceCandidate } from './t
 
 const EXCLUDED_PRIMARY_TYPES = new Set(['cafe', 'restaurant']);
 const MAX_PLACES = 20;
-/** If fewer pass the corridor filter, top up from the full API list. */
-const MIN_FILTERED_BEFORE_SUPPLEMENT = 5;
 const TARGET_PLACE_COUNT = 10;
-/** Max distance for places added from the full API pool (supplement / no-filter fallback). */
-const MAX_POOL_PLACE_DISTANCE_M = 700;
+/** Used only when the primary corridor filter returns no places. */
+const FALLBACK_MAX_DISTANCE_M = 2000;
 
-const WALK_BASE_DISTANCE_M = 220;
-const BIKE_BASE_DISTANCE_M = 400;
-const WALK_MAX_DISTANCE_M = 750;
-const BIKE_MAX_DISTANCE_M = 1400;
+const WALK_BASE_DISTANCE_M = 450;
+const BIKE_BASE_DISTANCE_M = 800;
+const WALK_MAX_DISTANCE_M = 1200;
+const BIKE_MAX_DISTANCE_M = 2000;
 /** Below this route length, use base corridor width only. */
 const ROUTE_SCALE_START_KM = 12;
 /** At this length and beyond, use max corridor width. */
@@ -61,55 +59,28 @@ export function filterPlacesNearRoute(params: {
 
   const candidates = places.map((place) => rawPlaceToCandidate(place, routePath));
 
-  const filtered = candidates
-    .filter((place) => place.distanceToRouteM <= maxDistanceM)
-    .filter(shouldShowPlace);
-
-  const selected = selectPlacesAfterFilter(filtered, candidates);
+  const selected = selectPlacesNearRoute(candidates, maxDistanceM);
 
   return finalizeInterestingPlaces(selected, routePath);
 }
 
-function selectPlacesAfterFilter(
-  filtered: PlaceCandidate[],
-  candidates: PlaceCandidate[]
+function selectPlacesNearRoute(
+  candidates: PlaceCandidate[],
+  maxDistanceM: number
 ): PlaceCandidate[] {
-  if (filtered.length === 0) {
-    return candidates.filter((place) => place.distanceToRouteM <= MAX_POOL_PLACE_DISTANCE_M);
-  }
-
-  if (filtered.length < MIN_FILTERED_BEFORE_SUPPLEMENT) {
-    return supplementPlacesFromPool(filtered, candidates, TARGET_PLACE_COUNT);
-  }
-
-  return filtered;
-}
-
-/** Add closest unselected places from the full pool until the target count (or pool exhausted). */
-function supplementPlacesFromPool(
-  selected: PlaceCandidate[],
-  pool: PlaceCandidate[],
-  targetCount: number
-): PlaceCandidate[] {
-  const selectedIds = new Set(selected.map((place) => place.id));
-  const result = [...selected];
-
-  const extras = pool
-    .filter(
-      (place) =>
-        !selectedIds.has(place.id) && place.distanceToRouteM <= MAX_POOL_PLACE_DISTANCE_M
-    )
+  const eligible = candidates.filter(shouldShowPlace);
+  const inCorridor = eligible
+    .filter((place) => place.distanceToRouteM <= maxDistanceM)
     .sort((first, second) => first.distanceToRouteM - second.distanceToRouteM);
 
-  for (const place of extras) {
-    if (result.length >= targetCount) {
-      break;
-    }
-    result.push(place);
-    selectedIds.add(place.id);
+  if (inCorridor.length > 0) {
+    return inCorridor;
   }
 
-  return result;
+  return eligible
+    .filter((place) => place.distanceToRouteM <= FALLBACK_MAX_DISTANCE_M)
+    .sort((first, second) => first.distanceToRouteM - second.distanceToRouteM)
+    .slice(0, TARGET_PLACE_COUNT);
 }
 
 function rawPlaceToCandidate(place: RawPlace, routePath: LatLng[]): PlaceCandidate {
@@ -129,6 +100,25 @@ function rawPlaceToCandidate(place: RawPlace, routePath: LatLng[]): PlaceCandida
     distanceToRouteM: getDistanceToPolylineMeters(position, routePath),
     score: 0
   };
+}
+
+/** Recompute distance/order metrics for existing places after the route path changes. */
+export function updateInterestingPlacesAlongRoute(
+  places: InterestingPlace[],
+  routePath: LatLng[]
+): InterestingPlace[] {
+  if (routePath.length < 2 || places.length === 0) {
+    return places;
+  }
+
+  return places.map((place) => {
+    const position = { lat: place.lat, lng: place.lng };
+    return {
+      ...place,
+      distanceToRouteM: Math.round(getDistanceToPolylineMeters(position, routePath)),
+      routeOrderM: Math.round(getDistanceAlongPolylineMeters(position, routePath))
+    };
+  });
 }
 
 function finalizeInterestingPlaces(
@@ -154,7 +144,7 @@ function finalizeInterestingPlaces(
     }));
 }
 
-function getDistanceToPolylineMeters(point: LatLng, path: LatLng[]): number {
+export function getDistanceToPolylineMeters(point: LatLng, path: LatLng[]): number {
   if (path.length < 2) {
     return Number.POSITIVE_INFINITY;
   }

@@ -1,14 +1,14 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useErrorToast } from '../../context/ErrorToastContext';
+import { getCurrentPosition } from '../../utils/resolveCurrentLocation';
 
 type UseUserLocationParams = {
   mapRef: React.RefObject<google.maps.Map | null>;
+  isReady?: boolean;
+  autoLocateOnLoad?: boolean;
 };
 
-const locate = (options: PositionOptions) =>
-  new Promise<GeolocationPosition>((resolve, reject) => {
-    navigator.geolocation.getCurrentPosition(resolve, reject, options);
-  });
+let hasAttemptedInitialLocate = false;
 
 const getGeolocationErrorMessage = (error: GeolocationPositionError) => {
   switch (error.code) {
@@ -31,78 +31,91 @@ function locationErrorMessage(text: string) {
   );
 }
 
-export function useUserLocation({ mapRef }: UseUserLocationParams) {
+function showUserOnMap(
+  map: google.maps.Map,
+  location: google.maps.LatLngLiteral,
+  markerRef: React.MutableRefObject<google.maps.Marker | null>
+) {
+  map.panTo(location);
+  map.setZoom(Math.max(map.getZoom() ?? 0, 16));
+
+  if (markerRef.current) {
+    markerRef.current.setPosition(location);
+    return;
+  }
+
+  markerRef.current = new google.maps.Marker({
+    map,
+    position: location,
+    title: 'My location'
+  });
+}
+
+export function useUserLocation({
+  mapRef,
+  isReady = false,
+  autoLocateOnLoad = false
+}: UseUserLocationParams) {
   const { showErrorToast } = useErrorToast();
   const userLocationMarkerRef = useRef<google.maps.Marker | null>(null);
   const [isLocating, setIsLocating] = useState(false);
 
-  const handleLocateUser = useCallback(async () => {
-    const map = mapRef.current;
-    if (!map || isLocating) return;
+  const locateUser = useCallback(
+    async (options?: { silent?: boolean }) => {
+      const map = mapRef.current;
+      if (!map || isLocating) {
+        return false;
+      }
 
-    if (!('geolocation' in navigator)) {
-      showErrorToast({
-        variant: 'error',
-        title: 'Unable to locate you',
-        message: locationErrorMessage('Geolocation is not supported in this browser.')
-      });
+      setIsLocating(true);
+
+      try {
+        const position = await getCurrentPosition();
+        const location = {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude
+        };
+
+        showUserOnMap(map, location, userLocationMarkerRef);
+        return true;
+      } catch (error) {
+        const message =
+          error instanceof GeolocationPositionError
+            ? getGeolocationErrorMessage(error)
+            : error instanceof Error
+              ? error.message
+              : 'Unable to access current location.';
+
+        console.warn(message, error);
+
+        if (!options?.silent) {
+          showErrorToast({
+            variant: 'error',
+            title: 'Unable to locate you',
+            message: locationErrorMessage(message)
+          });
+        }
+
+        return false;
+      } finally {
+        setIsLocating(false);
+      }
+    },
+    [isLocating, mapRef, showErrorToast]
+  );
+
+  const handleLocateUser = useCallback(() => {
+    void locateUser({ silent: false });
+  }, [locateUser]);
+
+  useEffect(() => {
+    if (!autoLocateOnLoad || !isReady || hasAttemptedInitialLocate) {
       return;
     }
 
-    setIsLocating(true);
-
-    try {
-      let position: GeolocationPosition;
-
-      try {
-        position = await locate({
-          enableHighAccuracy: false,
-          timeout: 15000,
-          maximumAge: 5 * 60 * 1000
-        });
-      } catch (firstError) {
-        console.warn('Default geolocation failed, retrying with high accuracy', firstError);
-
-        position = await locate({
-          enableHighAccuracy: true,
-          timeout: 20000,
-          maximumAge: 0
-        });
-      }
-
-      const location = {
-        lat: position.coords.latitude,
-        lng: position.coords.longitude
-      };
-
-      map.panTo(location);
-      map.setZoom(Math.max(map.getZoom() ?? 0, 16));
-
-      if (userLocationMarkerRef.current) {
-        userLocationMarkerRef.current.setPosition(location);
-      } else {
-        userLocationMarkerRef.current = new google.maps.Marker({
-          map,
-          position: location,
-          title: 'My location'
-        });
-      }
-    } catch (error) {
-      const message =
-        error instanceof GeolocationPositionError
-          ? getGeolocationErrorMessage(error)
-          : 'Unable to access current location.';
-
-      console.warn(message, error);
-      showErrorToast({
-        variant: 'error',
-        title: 'Unable to locate you',
-        message: locationErrorMessage(message)
-      });
-    } finally {
-      setIsLocating(false);
-    }
-  }, [isLocating, mapRef, showErrorToast]);
+    hasAttemptedInitialLocate = true;
+    void locateUser({ silent: true });
+  }, [autoLocateOnLoad, isReady, locateUser]);
 
   return { handleLocateUser, isLocating };
 }

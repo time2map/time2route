@@ -42,7 +42,8 @@ type SidebarProps = {
   onReset: () => void;
   onMapPickFocusTarget: (target: 'start' | 'destination') => void;
   onMapPickCancel: () => void;
-  mapPickTarget: 'start' | 'destination' | null;
+  onMobileMapPickActivate?: () => void;
+  mapPickHighlightTarget: 'start' | 'destination' | null;
   onRemoveStop: (placeId: string) => void;
   onStopHover?: (placeId: string | null) => void;
   onStopClick?: (placeId: string) => void;
@@ -57,6 +58,12 @@ type SidebarProps = {
   onMobileSheetExpandedChange: (expanded: boolean) => void;
   onMobileSheetSnapChange: (snap: ExpandedSheetSnap) => void;
   onSearchHistorySelect?: (entry: SearchHistoryEntry) => void;
+  fromSelected?: boolean;
+  toSelected?: boolean;
+  fromIsCurrentLocation?: boolean;
+  toIsCurrentLocation?: boolean;
+  greetingHighlightActive?: boolean;
+  onDismissGreeting?: () => void;
 };
 
 export function Sidebar(props: Readonly<SidebarProps>) {
@@ -80,7 +87,8 @@ export function Sidebar(props: Readonly<SidebarProps>) {
     onReset,
     onMapPickFocusTarget,
     onMapPickCancel,
-    mapPickTarget,
+    onMobileMapPickActivate,
+    mapPickHighlightTarget,
     onRemoveStop,
     onStopHover,
     onStopClick,
@@ -94,7 +102,13 @@ export function Sidebar(props: Readonly<SidebarProps>) {
     isMobileSheetExpanded,
     onMobileSheetExpandedChange,
     onMobileSheetSnapChange,
-    onSearchHistorySelect
+    onSearchHistorySelect,
+    fromSelected = false,
+    toSelected = false,
+    fromIsCurrentLocation = false,
+    toIsCurrentLocation = false,
+    greetingHighlightActive = false,
+    onDismissGreeting
   } = props;
 
   const isMobile = useMediaQuery(MOBILE_MEDIA_QUERY);
@@ -111,7 +125,7 @@ export function Sidebar(props: Readonly<SidebarProps>) {
     werePlannerFieldsFilledRef.current = bothFieldsFilled;
 
     if (becameFilled) {
-      onMobileSheetSnapChange('intermediate');
+      onMobileSheetSnapChange('middle');
       onMobileSheetExpandedChange(true);
     }
   }, [
@@ -150,7 +164,6 @@ export function Sidebar(props: Readonly<SidebarProps>) {
     showRouteError: viewModel.showRouteError,
     errorMessage: routeInfo.errorMessage,
     routeInfo,
-    elevationPoints: viewModel.elevationPoints,
     elevationInsight: viewModel.elevationInsight,
     onElevationPointHover,
     onElevationChartFocusChange,
@@ -170,7 +183,8 @@ export function Sidebar(props: Readonly<SidebarProps>) {
     onBuildRoute,
     onMapPickFocusTarget,
     onMapPickCancel,
-    mapPickTarget,
+    onMobileMapPickActivate,
+    mapPickHighlightTarget,
     onSwapLocations,
     routeBuilt,
     routeStops: routeIntermediates,
@@ -192,6 +206,10 @@ export function Sidebar(props: Readonly<SidebarProps>) {
         }
       : undefined,
     onSearchHistorySelect,
+    fromSelected,
+    toSelected,
+    fromIsCurrentLocation,
+    toIsCurrentLocation,
     onExpandMobileSheetForInput: isMobile
       ? () => {
           onMobileSheetSnapChange('penultimate');
@@ -206,6 +224,8 @@ export function Sidebar(props: Readonly<SidebarProps>) {
       {...plannerFormProps}
       mobileSheetSnap={mobileSheetSnap}
       isMobileSheetExpanded={isMobileSheetExpanded}
+      greetingHighlightActive={greetingHighlightActive}
+      onDismissGreeting={onDismissGreeting}
     />
   );
 

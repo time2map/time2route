@@ -3,8 +3,9 @@ export function createPlacePinElement(params: {
   title: string
   color: string
   active?: boolean
+  routeStop?: boolean
 }): HTMLDivElement {
-  const { index, title, color, active = false } = params
+  const { index, title, color, active = false, routeStop = false } = params
   const dotRadius = active ? 10 : 8
   const dotY = active ? -14 : -15
   const dotSize = active ? 14 : 10
@@ -13,7 +14,7 @@ export function createPlacePinElement(params: {
   const dotGlyphColor = active ? '#fff' : color
 
   const wrapper = document.createElement('div')
-  wrapper.className = `place-pin-marker ${active ? 'is-active' : ''}`
+  wrapper.className = `place-pin-marker${active ? ' is-active' : ''}${routeStop ? ' is-route-stop-pin' : ''}`
   wrapper.dataset.place = String(index)
   wrapper.title = title
 
@@ -41,7 +42,7 @@ export function createPlacePinElement(params: {
           stroke="${dotStroke}"
           stroke-width="2"
           filter="url(#placePinShadow-${index})"
-          class="pin-dot"
+          class="pin-dot${routeStop ? ' pin-dot--route-stop' : ''}"
         ></circle>
 
         <text

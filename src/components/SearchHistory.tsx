@@ -93,42 +93,6 @@ export function SearchHistory({
           </div>
           );
         })}
-        {entries.map((entry) => {
-          const fullLabel = `${entry.from} → ${entry.to}`;
-          const displayLabel = `${shortenLocationLabel(entry.from)} → ${shortenLocationLabel(entry.to)}`;
-
-          return (
-          <div
-            key={entry.id}
-            className="search-history-item"
-            role="button"
-            tabIndex={0}
-            onClick={() => onSelect(entry)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' || event.key === ' ') {
-                event.preventDefault();
-                onSelect(entry);
-              }
-            }}>
-            <span className="h-icon" aria-hidden="true">
-              <RouteIcon />
-            </span>
-            <span className="h-name" title={fullLabel}>
-              {displayLabel}
-            </span>
-            <button
-              type="button"
-              className="h-remove"
-              aria-label={`Remove ${fullLabel}`}
-              onClick={(event) => {
-                event.stopPropagation();
-                onRemove(entry.id);
-              }}>
-              ×
-            </button>
-          </div>
-          );
-        })}
       </div>
     </div>
   );

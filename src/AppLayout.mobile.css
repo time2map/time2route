@@ -111,7 +111,11 @@
     overflow-x: hidden;
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
-    padding: 5px 5px calc(12px + var(--safe-b));
+    padding: 8px 5px calc(12px + var(--safe-b));
+  }
+
+  .sidebar-mobile-form.is-sheet-expanding > :not(.sheet-location-drag-group) {
+    pointer-events: none;
   }
 
   .sidebar-mobile-form {
@@ -160,6 +164,12 @@
     font-size: 14px;
     min-width: 0;
     outline: none;
+  }
+
+  .sidebar-mobile-location-row.is-sheet-locked input {
+    pointer-events: none;
+    user-select: none;
+    caret-color: transparent;
   }
 
   .sidebar-mobile-location-row .swap-btn {
@@ -366,5 +376,9 @@
   .place-name-label .pnl-dot {
     width: 5px;
     height: 5px;
+  }
+
+  .route-endpoint-popup {
+    display: none;
   }
 }

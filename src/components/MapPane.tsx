@@ -25,7 +25,6 @@ const modeLabel: Record<ActivityMode, string> = {
 export type MapPaneProps = {
   routeBuilt: boolean;
   routeStatus: 'idle' | 'loading' | 'ready' | 'error';
-  hideEndpointMarkers: boolean;
   buildNonce: number;
   mode: ActivityMode;
   origin: string;
@@ -62,13 +61,13 @@ export type MapPaneProps = {
   routeChartZoomTarget: { distanceKm: number; key: number } | null;
   onMapUserMove?: () => void;
   onCollapseMobileSheet?: () => void;
+  routeStopsHintActive?: boolean;
 };
 
 export function MapPane(props: Readonly<MapPaneProps>) {
   const {
     routeBuilt,
     routeStatus,
-    hideEndpointMarkers,
     buildNonce,
     mode,
     origin,
@@ -96,7 +95,8 @@ export function MapPane(props: Readonly<MapPaneProps>) {
     elevationChartFocused,
     routeChartZoomTarget,
     onMapUserMove,
-    onCollapseMobileSheet
+    onCollapseMobileSheet,
+    routeStopsHintActive = false
   } = props;
 
   const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
@@ -134,7 +134,8 @@ export function MapPane(props: Readonly<MapPaneProps>) {
     onHoveredPlaceChange,
     onAddPlaceToRoute,
     onRemovePlaceFromRoute,
-    clearPickMarker: click.clearPickMarker
+    clearPickMarker: click.clearPickMarker,
+    routeStopsHintActive
   });
 
   useEffect(() => {
@@ -195,7 +196,6 @@ export function MapPane(props: Readonly<MapPaneProps>) {
 
   useEndpointMarkers({
     map,
-    hideEndpointMarkers,
     elevationChartFocused,
     routeStatus,
     startPoint,
@@ -215,7 +215,11 @@ export function MapPane(props: Readonly<MapPaneProps>) {
     onAddPlaceToRoute
   });
 
-  const { handleLocateUser, isLocating } = useUserLocation({ mapRef });
+  const { handleLocateUser, isLocating } = useUserLocation({
+    mapRef,
+    isReady,
+    autoLocateOnLoad: true
+  });
 
   useMapMarkerVisibility({
     map,

@@ -14,19 +14,12 @@ import {
 } from 'chart.js'
 import { Line } from 'react-chartjs-2'
 import { getRouteStrokeColor } from '../utils/googleRouteLayer'
-import type { ActivityMode } from '../utils/types'
+import type { ActivityMode, ElevationStats } from '../utils/types'
 
 ChartJS.register(LinearScale, PointElement, LineElement, Tooltip, Legend, Filler)
 
-export type ElevationPoint = {
-  distanceKm: number
-  elevationM: number
-  lat?: number
-  lng?: number
-}
-
 type ElevationProfileChartProps = {
-  points?: ElevationPoint[]
+  elevation?: ElevationStats | null
   mode?: ActivityMode
   title?: string
   activityLabel?: string
@@ -47,8 +40,8 @@ const CHART_COLORS = {
   card: 'rgba(232, 228, 220, 0.06)',
 }
 
-function hasChartData(points: ElevationPoint[] | undefined): points is ElevationPoint[] {
-  return Boolean(points && points.length > 1)
+function hasChartData(elevation: ElevationStats | null | undefined): elevation is ElevationStats {
+  return Boolean(elevation && elevation.profile.length > 1)
 }
 
 function roundElevationM(value: number): number {
@@ -73,7 +66,11 @@ function formatElevationTick(value: number | string): string {
   return `${roundElevationM(numeric).toFixed(2)} m`
 }
 
-function findNearestPointIndex(chart: Chart<'line'>, eventX: number, points: ElevationPoint[]): number | null {
+function findNearestPointIndex(
+  chart: Chart<'line'>,
+  eventX: number,
+  points: ElevationStats['profile'],
+): number | null {
   const xScale = chart.scales.x
   if (!xScale || points.length === 0) return null
 
@@ -97,7 +94,7 @@ function findNearestPointIndex(chart: Chart<'line'>, eventX: number, points: Ele
 function createElevationInteractionPlugin(
   onPointHoverRef: { current: ((index: number | null) => void) | undefined },
   onPointClickRef: { current: ((index: number) => void) | undefined },
-  pointsRef: { current: ElevationPoint[] }
+  pointsRef: { current: ElevationStats['profile'] }
 ) {
   return {
     id: 'elevationInteraction',
@@ -120,37 +117,7 @@ function createElevationInteractionPlugin(
   }
 }
 
-function calculateElevationStats(points: ElevationPoint[]) {
-  let ascent = 0
-  let descent = 0
-
-  for (let index = 1; index < points.length; index += 1) {
-    const diff = points[index].elevationM - points[index - 1].elevationM
-    if (diff > 0) ascent += diff
-    else descent += Math.abs(diff)
-  }
-
-  const elevations = points.map((point) => point.elevationM)
-  const distances = points.map((point) => point.distanceKm)
-  const minElevation = Math.min(...elevations)
-  const maxElevation = Math.max(...elevations)
-  const totalDistance = Math.max(...distances)
-
-  let difficulty = 'Challenging'
-  if (ascent < 50) difficulty = 'Easy'
-  else if (ascent < 150) difficulty = 'Moderate'
-
-  return {
-    ascent: Math.round(ascent),
-    descent: Math.round(descent),
-    minElevation: Math.round(minElevation),
-    maxElevation: Math.round(maxElevation),
-    totalDistance: Number(totalDistance.toFixed(1)),
-    difficulty,
-  }
-}
-
-function difficultyStyles(difficulty: string) {
+function difficultyStyles(difficulty: ElevationStats['difficulty']) {
   if (difficulty === 'Easy') return { background: '#5aaab8', color: CHART_COLORS.text }
   if (difficulty === 'Moderate') return { background: '#d97a56', color: CHART_COLORS.text }
   return { background: '#c9463b', color: CHART_COLORS.text }
@@ -243,7 +210,7 @@ function ElevationProfileChartPlaceholder({
 }
 
 function ElevationProfileChartLoaded({
-  points,
+  elevation,
   mode,
   title,
   activityLabel,
@@ -253,7 +220,7 @@ function ElevationProfileChartLoaded({
   onPointClick,
   onChartFocusChange,
 }: Readonly<{
-  points: ElevationPoint[]
+  elevation: ElevationStats
   mode: ActivityMode
   title: string
   activityLabel: string
@@ -263,6 +230,7 @@ function ElevationProfileChartLoaded({
   onPointClick?: (index: number) => void
   onChartFocusChange?: (focused: boolean) => void
 }>) {
+  const points = elevation.profile
   const onPointHoverRef = useRef(onPointHover)
   onPointHoverRef.current = onPointHover
   const onPointClickRef = useRef(onPointClick)
@@ -277,12 +245,11 @@ function ElevationProfileChartLoaded({
     []
   )
 
-  const stats = useMemo(() => calculateElevationStats(points), [points])
-  const elevationSpan = Math.max(stats.maxElevation - stats.minElevation, 1)
+  const elevationSpan = Math.max(elevation.maxElevationM - elevation.minElevationM, 1)
   const chartMinY = roundElevationM(
-    stats.minElevation - Math.max(20, elevationSpan * 0.12),
+    elevation.minElevationM - Math.max(20, elevationSpan * 0.12),
   )
-  const chartMaxY = roundElevationM(stats.maxElevation + Math.max(30, elevationSpan * 0.12))
+  const chartMaxY = roundElevationM(elevation.maxElevationM + Math.max(30, elevationSpan * 0.12))
   const routeLineColor = getRouteStrokeColor(mode)
 
   const data = useMemo(
@@ -361,7 +328,7 @@ function ElevationProfileChartLoaded({
         x: {
           type: 'linear',
           min: 0,
-          max: stats.totalDistance,
+          max: elevation.totalDistanceKm,
           grid: { color: CHART_COLORS.grid },
           border: { display: false },
           ticks: {
@@ -399,10 +366,10 @@ function ElevationProfileChartLoaded({
         },
       },
     }),
-    [chartMaxY, chartMinY, compact, stats.totalDistance],
+    [chartMaxY, chartMinY, compact, elevation.totalDistanceKm],
   )
 
-  const difficulty = difficultyStyles(stats.difficulty)
+  const difficulty = difficultyStyles(elevation.difficulty)
 
   return (
     <section
@@ -452,7 +419,7 @@ function ElevationProfileChartLoaded({
             whiteSpace: 'nowrap',
           }}
         >
-          {stats.difficulty}
+          {elevation.difficulty}
         </div>
       </div>
 
@@ -465,11 +432,11 @@ function ElevationProfileChartLoaded({
             marginBottom: 22,
           }}
         >
-          <StatCard label="Distance" value={`${stats.totalDistance} km`} />
-          <StatCard label="Ascent" value={`+${stats.ascent} m`} />
-          <StatCard label="Descent" value={`-${stats.descent} m`} />
-          <StatCard label="Lowest" value={`${stats.minElevation} m`} />
-          <StatCard label="Highest" value={`${stats.maxElevation} m`} />
+          <StatCard label="Distance" value={`${elevation.totalDistanceKm} km`} />
+          <StatCard label="Ascent" value={`+${elevation.totalAscentM} m`} />
+          <StatCard label="Descent" value={`-${elevation.totalDescentM} m`} />
+          <StatCard label="Lowest" value={`${elevation.minElevationM} m`} />
+          <StatCard label="Highest" value={`${elevation.maxElevationM} m`} />
         </div>
       )}
 
@@ -499,7 +466,7 @@ function ElevationProfileChartLoaded({
 }
 
 export function ElevationProfileChart({
-  points,
+  elevation,
   mode = 'walk',
   title = 'Elevation profile',
   activityLabel = 'Running',
@@ -509,7 +476,7 @@ export function ElevationProfileChart({
   onPointClick,
   onChartFocusChange,
 }: Readonly<ElevationProfileChartProps>) {
-  if (!hasChartData(points)) {
+  if (!hasChartData(elevation)) {
     return (
       <ElevationProfileChartPlaceholder
         title={title}
@@ -522,7 +489,7 @@ export function ElevationProfileChart({
 
   return (
     <ElevationProfileChartLoaded
-      points={points}
+      elevation={elevation}
       mode={mode}
       title={title}
       activityLabel={activityLabel}

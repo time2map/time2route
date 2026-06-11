@@ -6,8 +6,11 @@ import {
   formatDuration
 } from '../../utils/googleRouteLayer';
 import { getRouteElevationStats } from '../../utils/elevationUtils';
-import { filterPlacesNearRoute } from '../../utils/placesAlongRoute';
+import { filterPlacesNearRoute, updateInterestingPlacesAlongRoute } from '../../utils/placesAlongRoute';
 import { searchPlacesAlongRoute } from '../../api/secrchPlacesAlongRoute';
+import { useErrorToast } from '../../context/ErrorToastContext';
+
+const NO_PLACES_FOUND_MESSAGE = "Couldn't find a place. Try to choose another area.";
 import type { ActivityMode, ElevationStats, InterestingPlace, RouteIntermediatePoint } from '../../utils/types';
 import type { PlaceMapPopupAction } from '../../components/mapComponents/placeMapPopup';
 import type { PlaceMarker, PlaceMarkerPopupContext } from '../useMapPaneMarkers';
@@ -85,6 +88,7 @@ export function useRouteBuilder({
   lastRoutePathRef
 }: UseRouteBuilderParams) {
   const [distanceLabel, setDistanceLabel] = useState('—');
+  const { showErrorToast } = useErrorToast();
 
   useEffect(() => {
     if (!map) return;
@@ -137,12 +141,14 @@ export function useRouteBuilder({
 
         const applyRouteInfo = (elevation: ElevationStats | null) => {
           const encodedPolyline = result.encodedPolyline;
-
-          const placesPromise =
+          const placeSearchParams =
             refreshPlaces && encodedPolyline && apiKey && routePath.length > 1
+              ? { encodedPolyline, apiKey }
+              : null;
+
+          const placesPromise = placeSearchParams
               ? searchPlacesAlongRoute({
-                  encodedPolyline,
-                  apiKey,
+                  ...placeSearchParams,
                   languageCode: 'en'
                 })
                   .then((rawPlaces) =>
@@ -157,10 +163,21 @@ export function useRouteBuilder({
                     console.error(message);
                     return [];
                   })
-              : Promise.resolve(routePlacesRef.current);
+              : Promise.resolve(
+                  updateInterestingPlacesAlongRoute(routePlacesRef.current, routePath)
+                );
 
           void placesPromise.then((interestingPlaces) => {
             if (disposed) return;
+
+            if (placeSearchParams && interestingPlaces.length === 0) {
+              showErrorToast({
+                variant: 'info',
+                title: NO_PLACES_FOUND_MESSAGE,
+                message: '',
+                autoHideMs: 10000
+              });
+            }
 
             clearPlaceMarkers();
             void createPlaceMarkers({
@@ -264,7 +281,8 @@ export function useRouteBuilder({
     routeBuilt,
     routePlacesRef,
     selectedPlaceRef,
-    lastRoutePathRef
+    lastRoutePathRef,
+    showErrorToast
   ]);
 
   return { lastRoutePathRef, distanceLabel };

@@ -24,12 +24,6 @@ type RouteOverviewProps = {
     elevation: ElevationStats | null;
     interestingPlaces: InterestingPlace[];
   };
-  elevationPoints: Array<{
-    distanceKm: number;
-    elevationM: number;
-    lat?: number;
-    lng?: number;
-  }>;
   elevationInsight: string;
   onElevationPointHover?: (index: number | null) => void;
   onElevationChartFocusChange?: (focused: boolean) => void;
@@ -48,7 +42,6 @@ export function RouteOverview({
   showRouteError,
   errorMessage,
   routeInfo,
-  elevationPoints,
   elevationInsight,
   onElevationPointHover,
   onElevationChartFocusChange,
@@ -88,7 +81,7 @@ export function RouteOverview({
           compact
           mode={mode}
           activityLabel={bestForValue}
-          points={elevationPoints.length > 1 ? elevationPoints : undefined}
+          elevation={routeInfo.elevation}
           chartHeight={160}
           onPointHover={onElevationPointHover}
           onChartFocusChange={variant === 'desktop' ? onElevationChartFocusChange : undefined}

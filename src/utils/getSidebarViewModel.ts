@@ -37,13 +37,6 @@ export function getSidebarViewModel({
   const showRouteSkeleton =
     routeBuilt && Boolean(from.trim()) && Boolean(to.trim()) && routeInfo.status === 'loading';
   const showRouteError = routeInfo.status === 'error';
-  const elevationPoints =
-    routeInfo.elevation?.profile.map((point) => ({
-      distanceKm: point.distanceKm,
-      elevationM: point.elevationM,
-      lat: point.lat,
-      lng: point.lng
-    })) ?? [];
   const elevationInsight = routeInfo.elevation
     ? getElevationInsight(routeInfo.elevation)
     : 'Elevation data will be available after route build.';
@@ -60,7 +53,6 @@ export function getSidebarViewModel({
     bestForLabel,
     showRouteSkeleton,
     showRouteError,
-    elevationPoints,
     elevationInsight,
     sheetTitle
   };

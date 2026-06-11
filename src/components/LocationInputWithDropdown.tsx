@@ -21,6 +21,9 @@ export type LocationInputWithDropdownProps = {
   onMapPickCancel?: () => void;
   isOpen?: boolean;
   onOpenChange?: (open: boolean) => void;
+  placeResolved?: boolean;
+  inputDisabled?: boolean;
+  onInputActivate?: () => void;
 };
 
 export function LocationInputWithDropdown({
@@ -40,7 +43,10 @@ export function LocationInputWithDropdown({
   onBlur,
   onMapPickCancel,
   isOpen,
-  onOpenChange
+  onOpenChange,
+  placeResolved,
+  inputDisabled = false,
+  onInputActivate
 }: Readonly<LocationInputWithDropdownProps>) {
   const {
     listboxId,
@@ -64,8 +70,19 @@ export function LocationInputWithDropdown({
     onBlur,
     onMapPickCancel,
     isOpen,
-    onOpenChange
+    onOpenChange,
+    placeResolved,
+    inputDisabled
   });
+
+  const handleWrapperPointerDownCapture = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!inputDisabled) {
+      return;
+    }
+
+    event.preventDefault();
+    onInputActivate?.();
+  };
 
   const setInputRef = (element: HTMLInputElement | null) => {
     inputRef.current = element;
@@ -76,13 +93,17 @@ export function LocationInputWithDropdown({
 
   return (
     <div
-      className={wrapperClassName}
-      data-location-field={inputId}>
+      className={`${wrapperClassName}${inputDisabled ? ' is-sheet-locked' : ''}`}
+      data-location-field={inputId}
+      onPointerDownCapture={handleWrapperPointerDownCapture}>
       <div className="pin-left">{pinIcon}</div>
       <input
         ref={setInputRef}
         id={inputId}
         value={value}
+        readOnly={inputDisabled}
+        tabIndex={inputDisabled ? -1 : undefined}
+        aria-disabled={inputDisabled || undefined}
         onChange={(event) => inputProps.onChange(event.target.value)}
         onFocus={inputProps.onFocus}
         onPointerDown={inputProps.onPointerDown}

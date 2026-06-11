@@ -1,6 +1,7 @@
 type SuggestedLocationsProps = {
   onCurrentLocation: () => void;
   onSelectOnMap: () => void;
+  showCurrentLocation?: boolean;
 };
 
 function CurrentLocationIcon() {
@@ -29,14 +30,17 @@ function PinIcon() {
 
 export function SuggestedLocations({
   onCurrentLocation,
-  onSelectOnMap
+  onSelectOnMap,
+  showCurrentLocation = true
 }: Readonly<SuggestedLocationsProps>) {
   return (
     <div className="suggested-locations">
-      <button type="button" className="location-chip" onClick={onCurrentLocation}>
-        <CurrentLocationIcon />
-        Current location
-      </button>
+      {showCurrentLocation ? (
+        <button type="button" className="location-chip" onClick={onCurrentLocation}>
+          <CurrentLocationIcon />
+          Current location
+        </button>
+      ) : null}
 
       <button
         type="button"

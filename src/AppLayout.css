@@ -144,6 +144,95 @@
   border-bottom: 1px solid var(--border);
 }
 
+/* Greeting card — portal overlay aligned with route inputs (first visit) */
+.greeting-card {
+  position: fixed;
+  z-index: 1000;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  padding: 16px 30px 14px 16px;
+  max-width: 350px;
+  transform: translateY(-50%);
+  transition: opacity 0.35s ease, transform 0.35s cubic-bezier(0.23, 1, 0.32, 1);
+  pointer-events: auto;
+}
+
+.greeting-card::before {
+  content: '';
+  position: absolute;
+  left: -7px;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  transform: translateY(-50%) rotate(45deg);
+  border-radius: 2px 0 0 0;
+}
+
+.greeting-card.hidden-card {
+  opacity: 0;
+  transform: translateY(-50%) translateX(10px) scale(0.97);
+  pointer-events: none;
+}
+
+.greeting-card.hidden-card::before {
+  opacity: 0;
+}
+
+.greeting-close {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 22px;
+  height: 22px;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  transition: background 0.15s;
+}
+
+.greeting-close:hover {
+  background: var(--blue-light);
+  color: var(--accent);
+}
+
+.greeting-body {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.greeting-icon {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+}
+
+.greeting-icon svg {
+  width: 24px;
+  height: 24px;
+}
+
+.greeting-text {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--fg);
+  font-weight: 500;
+  padding-top: 1px;
+}
+
 .sidebar-section.state-route {
   border-bottom: none;
   flex: 1;
@@ -230,9 +319,82 @@
 }
 
 .location-picker {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.location-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.location-hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 2px;
+  font-size: 11px;
+  line-height: 1.4;
+  font-weight: 400;
+  color: var(--muted);
+  padding-left: 10px;
+}
+
+.location-hint svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+.location-hint.success {
+  color: var(--green);
+}
+
+.location-picker--greeting-active,
+.sheet-location-drag-group.location-picker--greeting-active {
+  position: relative;
+}
+
+.location-picker--greeting-active::after,
+.sheet-location-drag-group.location-picker--greeting-active::after {
+  content: '';
+  position: absolute;
+  inset: -6px;
+  border-radius: calc(var(--radius-sm) + 6px);
+  border: 2px solid var(--green-glass);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--green) 12%, transparent),
+    0 0 24px color-mix(in srgb, var(--green) 24%, transparent);
+  pointer-events: none;
+  z-index: 0;
+  animation: greeting-picker-glow 2.4s ease-in-out infinite;
+}
+
+.location-picker--greeting-active > *,
+.sheet-location-drag-group.location-picker--greeting-active > * {
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes greeting-picker-glow {
+  0%,
+  100% {
+    border-color: var(--green-glass);
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--green) 10%, transparent),
+      0 0 18px color-mix(in srgb, var(--green) 18%, transparent);
+  }
+
+  50% {
+    border-color: color-mix(in srgb, var(--green) 42%, transparent);
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--green) 20%, transparent),
+      0 0 32px color-mix(in srgb, var(--green) 32%, transparent);
+  }
 }
 
 .location-pin-input {
@@ -2060,9 +2222,14 @@
   pointer-events: auto;
 }
 
+.custom-route-stop-marker .place-name-label,
 .custom-route-stop-marker .map-hover-tip,
 .custom-route-stop-marker .map-popup {
   left: 50%;
+}
+
+.custom-route-stop-marker .place-name-label {
+  bottom: calc(100% + 4px);
 }
 
 .custom-route-stop-marker .map-hover-tip {
@@ -2128,9 +2295,15 @@
     opacity: 1;
     animation: map-hover-tip-in 0.2s ease forwards;
   }
+
+  .custom-route-stop-marker:hover:not(.has-detail-popup) .place-name-label.visible,
+  .custom-route-stop-marker.is-hovered:not(.has-detail-popup) .place-name-label.visible {
+    opacity: 0;
+  }
 }
 
-.custom-route-stop-marker.has-detail-popup .map-hover-tip {
+.custom-route-stop-marker.has-detail-popup .map-hover-tip,
+.custom-route-stop-marker.has-detail-popup .place-name-label {
   display: none !important;
   opacity: 0 !important;
 }
@@ -2143,6 +2316,65 @@
 
 .place-marker-wrapper.is-active {
   z-index: 12;
+}
+
+.place-marker-wrapper.is-route-stop {
+  z-index: 10;
+}
+
+.place-marker-wrapper.is-route-stop circle.pin-dot,
+.place-pin-marker.is-route-stop-pin circle.pin-dot--route-stop {
+  stroke: var(--green) !important;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: pin-dot-route-stop-pulse 2.2s ease-in-out infinite;
+}
+
+.custom-route-stop-marker.is-route-stop .custom-route-stop-dot {
+  box-shadow:
+    0 0 0 2px var(--green-glass),
+    0 0 10px color-mix(in srgb, var(--green) 35%, transparent);
+}
+
+.custom-route-stop-marker.is-hint-active .custom-route-stop-dot {
+  animation: marker-hint-pulse 2.2s ease-in-out infinite;
+  transform-origin: center center;
+}
+
+.place-marker-wrapper.is-hint-active {
+  z-index: 11;
+}
+
+.place-marker-wrapper.is-hint-active:not(.is-route-stop) .place-pin-svg {
+  animation: marker-hint-pulse 2.2s ease-in-out infinite;
+  transform-origin: center bottom;
+}
+
+.place-marker-wrapper.is-hint-active:not(.is-route-stop) circle.pin-dot {
+  stroke: var(--green) !important;
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--green) 55%, transparent));
+}
+
+@keyframes marker-hint-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.1);
+  }
+}
+
+@keyframes pin-dot-route-stop-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.18);
+  }
 }
 
 /* Detail stays above hover tips on neighboring markers */
@@ -2158,6 +2390,11 @@
 
 .place-marker-wrapper .place-name-label {
   bottom: calc(100% - 10px);
+}
+
+.place-marker-wrapper.is-route-stop .place-name-label,
+.place-name-label.place-name-label--route-stop {
+  bottom: calc(100% + 4px);
 }
 
 .place-marker-wrapper .map-hover-tip {

@@ -91,6 +91,13 @@ export function isMobileViewport() {
   return globalThis.window.matchMedia('(max-width: 768px)').matches;
 }
 
+export function isMobileSheetFullyOpen(
+  expanded: boolean,
+  snap: ExpandedSheetSnap | undefined
+): boolean {
+  return expanded && snap === 'penultimate';
+}
+
 export type ExpandedSheetSnap =
   | 'intermediate'
   | 'middle'

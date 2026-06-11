@@ -50,9 +50,9 @@ function renderDistanceMarkup(distanceLabel: string | null): string {
 export function createPlaceMapPopup(params: PlaceMapPopupParams): HTMLDivElement {
   const { place, isAddedToRoute, photoUrl, photoLoading, onAction } = params;
   const categoryMeta = resolvePlaceCategory(place);
-  const distanceLabel = formatDistanceFromRoute(place.distanceToRouteM);
+  const distanceLabel = isAddedToRoute ? 'On route' : formatDistanceFromRoute(place.distanceToRouteM);
   const addStopClass = isAddedToRoute ? 'popup-addstop added' : 'popup-addstop';
-  const addStopLabel = isAddedToRoute ? 'Added' : 'Add a stop';
+  const addStopLabel = isAddedToRoute ? 'Remove' : 'Add a stop';
   const thumbClassName = photoUrl ? 'popup-thumb popup-thumb--expandable' : 'popup-thumb';
 
   const popup = document.createElement('div');

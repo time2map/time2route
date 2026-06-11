@@ -1,5 +1,6 @@
 import { getPlacePhotoViewState, type PlacePhotoState } from '../../hooks/usePlacePhotoCache';
 import { createPlaceHoverTip } from './placeHoverTip';
+import { createPlaceNameLabel } from './placeNameLabel';
 import { createPlaceMapPopup, type PlaceMapPopupAction } from './placeMapPopup';
 import { resolveRouteStopCategoryColor, resolveRouteStopCategoryVariant } from '../../utils/routeStopIndicator';
 import type { InterestingPlace, RouteIntermediatePoint } from '../../utils/types';
@@ -8,6 +9,7 @@ export type CustomRouteStopPopupContext = {
   placePopupId: string | null;
   selectedPlace: string | null;
   hoveredPlaceId: string | null;
+  routeStopsHintActive?: boolean;
   placePhotos: Record<string, PlacePhotoState>;
   onPopupAction: (action: PlaceMapPopupAction, place: InterestingPlace) => void;
 };
@@ -45,6 +47,8 @@ export function createCustomRouteStopMarkerElement(
   element.className = [
     'custom-route-stop-marker',
     `custom-route-stop-marker--${categoryVariant}`,
+    'is-route-stop',
+    popupContext.routeStopsHintActive ? 'is-hint-active' : '',
     showMapPopup ? 'has-detail-popup' : '',
     isHovered ? 'is-hovered' : ''
   ]
@@ -53,6 +57,7 @@ export function createCustomRouteStopMarkerElement(
 
   element.dataset.placeId = place.id;
 
+  element.appendChild(createPlaceNameLabel(place, 0, categoryColor, true));
   element.appendChild(createPlaceHoverTip(place, categoryColor));
 
   const dot = document.createElement('div');

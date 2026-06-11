@@ -18,6 +18,7 @@ export type ShowErrorToastOptions = {
   message: ReactNode;
   actions?: ErrorToastAction[];
   autoHideMs?: number;
+  onClose?: () => void;
 };
 
 type ErrorToastContextValue = {
@@ -35,7 +36,10 @@ export function ErrorToastProvider({ children }: Readonly<{ children: ReactNode 
   }, []);
 
   const hideErrorToast = useCallback(() => {
-    setToast(null);
+    setToast((current) => {
+      current?.onClose?.();
+      return null;
+    });
   }, []);
 
   const value = useMemo(

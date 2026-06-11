@@ -11,6 +11,7 @@ type UseSuggestedLocationActionsParams = {
   onFromPlaceSelect?: (place: PlaceAutocompleteSelection) => void;
   onToPlaceSelect?: (place: PlaceAutocompleteSelection) => void;
   onMapPickFocusTarget: (target: LocationFieldTarget) => void;
+  onMobileMapPickActivate?: () => void;
   onCollapseMobileSheet?: () => void;
 };
 
@@ -47,6 +48,7 @@ export function useSuggestedLocationActions({
   onFromPlaceSelect,
   onToPlaceSelect,
   onMapPickFocusTarget,
+  onMobileMapPickActivate,
   onCollapseMobileSheet
 }: UseSuggestedLocationActionsParams) {
   const { showErrorToast } = useErrorToast();
@@ -99,10 +101,11 @@ export function useSuggestedLocationActions({
       onMapPickFocusTarget(target);
 
       if (isMobile) {
+        onMobileMapPickActivate?.();
         onCollapseMobileSheet?.();
       }
     },
-    [isMobile, onCollapseMobileSheet, onMapPickFocusTarget]
+    [isMobile, onCollapseMobileSheet, onMapPickFocusTarget, onMobileMapPickActivate]
   );
 
   return {

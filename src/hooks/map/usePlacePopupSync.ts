@@ -114,6 +114,7 @@ export function usePlacePopupSync({
           onRemovePlaceFromRoute(place.id);
         } else {
           onAddPlaceToRoute(place);
+          closePlacePopup();
         }
         return;
       }

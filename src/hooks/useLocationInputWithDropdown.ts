@@ -1,4 +1,4 @@
-import { useCallback, useId, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import {
   resolvePlaceAutocompletePrediction,
   resolvePlaceById,
@@ -25,6 +25,8 @@ export type UseLocationInputWithDropdownParams = {
   onMapPickCancel?: () => void;
   isOpen?: boolean;
   onOpenChange?: (open: boolean) => void;
+  placeResolved?: boolean;
+  inputDisabled?: boolean;
 };
 
 function formatSuggestionLabel(suggestion: LocationSuggestion): string {
@@ -45,7 +47,9 @@ export function useLocationInputWithDropdown({
   onBlur,
   onMapPickCancel,
   isOpen: isOpenControlled,
-  onOpenChange
+  onOpenChange,
+  placeResolved = false,
+  inputDisabled = false
 }: UseLocationInputWithDropdownParams) {
   const listboxId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -63,7 +67,7 @@ export function useLocationInputWithDropdown({
     map: useGoogleAutocomplete ? map : null,
     query: value,
     isOpen,
-    enabled: useGoogleAutocomplete
+    enabled: useGoogleAutocomplete && !placeResolved
   });
 
   const setIsOpen = useCallback(
@@ -80,7 +84,17 @@ export function useLocationInputWithDropdown({
     ? googleSuggestions
     : filterLocationSuggestions(manualSuggestions, value);
 
-  const showDropdown = isOpen && value.trim().length >= MIN_QUERY_LENGTH;
+  const showDropdown = isOpen && !placeResolved && value.trim().length >= MIN_QUERY_LENGTH;
+
+  useEffect(() => {
+    if (!placeResolved) {
+      return;
+    }
+
+    setIsOpen(false);
+    setHighlightedId(null);
+    resetSession();
+  }, [placeResolved, resetSession, setIsOpen]);
 
   const highlightedIndex = useMemo(() => {
     if (dropdownSuggestions.length === 0) return -1;
@@ -93,6 +107,7 @@ export function useLocationInputWithDropdown({
     setIsOpen(false);
     setHighlightedId(null);
     onMapPickCancel?.();
+    inputRef.current?.blur();
   }, [onMapPickCancel, setIsOpen]);
 
   const applyPlaceSelection = useCallback(
@@ -140,24 +155,32 @@ export function useLocationInputWithDropdown({
   }, [onFocus]);
 
   const handleInputFocus = useCallback(() => {
+    if (inputDisabled) {
+      return;
+    }
+
     resetSession();
     activateMapPickTarget();
-    if (value.trim().length >= MIN_QUERY_LENGTH) {
+    if (!placeResolved && value.trim().length >= MIN_QUERY_LENGTH) {
       setIsOpen(true);
     }
-  }, [activateMapPickTarget, resetSession, setIsOpen, value]);
+  }, [activateMapPickTarget, inputDisabled, placeResolved, resetSession, setIsOpen, value]);
 
   const handleInputPointerDown = useCallback(() => {
+    if (inputDisabled) {
+      return;
+    }
+
     activateMapPickTarget();
-  }, [activateMapPickTarget]);
+  }, [activateMapPickTarget, inputDisabled]);
 
   const handleInputChange = useCallback(
     (nextValue: string) => {
       onValueChange(nextValue);
       setHighlightedId(null);
-      setIsOpen(nextValue.trim().length >= MIN_QUERY_LENGTH);
+      setIsOpen(!placeResolved && nextValue.trim().length >= MIN_QUERY_LENGTH);
     },
-    [onValueChange, setIsOpen]
+    [onValueChange, placeResolved, setIsOpen]
   );
 
   const handleInputKeyDown = useCallback(

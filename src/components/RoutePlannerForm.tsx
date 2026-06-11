@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ActivityMode } from '../utils/types';
 import type { PlaceAutocompleteSelection } from '../api/placeAutocomplete';
 import type { LocationSuggestion } from '../utils/locationSuggestions';
@@ -12,8 +12,11 @@ import { RoutePoints } from './RoutePoints';
 import { useSearchHistory } from '../hooks/useSearchHistory';
 import { SearchHistory } from './SearchHistory';
 import { SuggestedLocations } from './SuggestedLocations';
+import { GreetingCard } from './GreetingCard';
+import { MOBILE_SHEET_ANIMATION_MS } from './MobileRouteSheet';
+import { LocationHint, resolveLocationHintState } from './LocationHint';
 import type { SearchHistoryEntry } from '../utils/searchHistory';
-import type { ExpandedSheetSnap } from '../utils/mobileRouteSheetSnap';
+import { isMobileSheetFullyOpen, type ExpandedSheetSnap } from '../utils/mobileRouteSheetSnap';
 import type { InterestingPlace, LatLng, RouteIntermediatePoint } from '../utils/types';
 
 type RoutePlannerFormProps = {
@@ -32,7 +35,7 @@ type RoutePlannerFormProps = {
   onBuildRoute: () => void;
   onMapPickFocusTarget: (target: 'start' | 'destination') => void;
   onMapPickCancel: () => void;
-  mapPickTarget?: 'start' | 'destination' | null;
+  mapPickHighlightTarget?: 'start' | 'destination' | null;
   onSwapLocations: () => void;
   routeBuilt?: boolean;
   routeStops?: RouteIntermediatePoint[];
@@ -52,16 +55,16 @@ type RoutePlannerFormProps = {
   mobileSheetSnap?: ExpandedSheetSnap;
   isMobileSheetExpanded?: boolean;
   onExpandMobileSheetForInput?: () => void;
+  onMobileMapPickActivate?: () => void;
+  fromSelected?: boolean;
+  toSelected?: boolean;
+  fromIsCurrentLocation?: boolean;
+  toIsCurrentLocation?: boolean;
+  greetingHighlightActive?: boolean;
+  onDismissGreeting?: () => void;
 };
 
 type ActiveDropdown = 'from' | 'to' | null;
-
-function isMobileSheetFullyOpen(
-  expanded: boolean,
-  snap: ExpandedSheetSnap | undefined
-): boolean {
-  return expanded && snap === 'penultimate';
-}
 
 export function RoutePlannerForm({
   variant,
@@ -79,7 +82,7 @@ export function RoutePlannerForm({
   onBuildRoute,
   onMapPickFocusTarget,
   onMapPickCancel,
-  mapPickTarget = null,
+  mapPickHighlightTarget = null,
   onSwapLocations,
   routeBuilt = false,
   routeStops = [],
@@ -97,7 +100,14 @@ export function RoutePlannerForm({
   onSearchHistorySelect,
   mobileSheetSnap,
   isMobileSheetExpanded = true,
-  onExpandMobileSheetForInput
+  onExpandMobileSheetForInput,
+  onMobileMapPickActivate,
+  fromSelected = false,
+  toSelected = false,
+  fromIsCurrentLocation = false,
+  toIsCurrentLocation = false,
+  greetingHighlightActive = false,
+  onDismissGreeting
 }: Readonly<RoutePlannerFormProps>) {
   const isMobile = variant === 'mobile';
   const fromInputId = isMobile ? 'fromInputMob' : 'fromInput';
@@ -106,6 +116,70 @@ export function RoutePlannerForm({
   const [suggestedLocationTarget, setSuggestedLocationTarget] = useState<'start' | 'destination'>('start');
   const fromInputRef = useRef<HTMLInputElement>(null);
   const toInputRef = useRef<HTMLInputElement>(null);
+  const locationPickerRef = useRef<HTMLDivElement>(null);
+  const [isGreetingHighlight, setIsGreetingHighlight] = useState(false);
+  const [focusedField, setFocusedField] = useState<'from' | 'to' | null>(null);
+  const [isSheetExpanding, setIsSheetExpanding] = useState(false);
+  const sheetExpandTimerRef = useRef<number | null>(null);
+  const isMobileSheetOpen = isMobile && isMobileSheetFullyOpen(isMobileSheetExpanded, mobileSheetSnap);
+  const mobileInputsLocked = isMobile && !isMobileSheetOpen;
+  const mobilePlannerInteractive = !isMobile || (isMobileSheetOpen && !isSheetExpanding);
+
+  const dismissGreetingIfActive = useCallback(() => {
+    if (greetingHighlightActive) {
+      onDismissGreeting?.();
+    }
+  }, [greetingHighlightActive, onDismissGreeting]);
+
+  const handleSheetExpandForInput = useCallback(() => {
+    dismissGreetingIfActive();
+
+    if (!isMobile) {
+      onExpandMobileSheetForInput?.();
+      return;
+    }
+
+    if (sheetExpandTimerRef.current !== null) {
+      globalThis.clearTimeout(sheetExpandTimerRef.current);
+    }
+
+    setIsSheetExpanding(true);
+    onExpandMobileSheetForInput?.();
+
+    sheetExpandTimerRef.current = globalThis.setTimeout(() => {
+      setIsSheetExpanding(false);
+      sheetExpandTimerRef.current = null;
+    }, MOBILE_SHEET_ANIMATION_MS);
+  }, [dismissGreetingIfActive, isMobile, onExpandMobileSheetForInput]);
+
+  useEffect(() => {
+    return () => {
+      if (sheetExpandTimerRef.current !== null) {
+        globalThis.clearTimeout(sheetExpandTimerRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!mobileInputsLocked) {
+      return;
+    }
+
+    fromInputRef.current?.blur();
+    toInputRef.current?.blur();
+    setFocusedField(null);
+    setActiveDropdown(null);
+  }, [mobileInputsLocked]);
+
+  const releaseFocusedField = (field: 'from' | 'to', inputId: string) => {
+    globalThis.setTimeout(() => {
+      if (document.activeElement?.closest(`[data-location-field="${inputId}"]`)) {
+        return;
+      }
+
+      setFocusedField((current) => (current === field ? null : current));
+    }, 0);
+  };
 
   const isBuildRouteDisabled = !from.trim() || !to.trim() || !isOnline;
   const showSuggestedLocations = !from.trim() || !to.trim();
@@ -115,16 +189,45 @@ export function RoutePlannerForm({
   const { entries: searchHistoryEntries, removeEntry: removeSearchHistoryEntry } =
     useSearchHistory();
 
-  const showSearchHistory =
-    searchHistoryEntries.length > 0 &&
-    (!isMobile || isMobileSheetFullyOpen(isMobileSheetExpanded, mobileSheetSnap));
+  const showSearchHistory = searchHistoryEntries.length > 0 && mobilePlannerInteractive;
+
+  const blurFromInput = () => {
+    fromInputRef.current?.blur();
+    setFocusedField((current) => (current === 'from' ? null : current));
+    setActiveDropdown((current) => (current === 'from' ? null : current));
+  };
+
+  const blurToInput = () => {
+    toInputRef.current?.blur();
+    setFocusedField((current) => (current === 'to' ? null : current));
+    setActiveDropdown((current) => (current === 'to' ? null : current));
+  };
+
+  const handleFromPlaceSelect = (place: PlaceAutocompleteSelection) => {
+    onFromPlaceSelect?.(place);
+    blurFromInput();
+  };
+
+  const handleToPlaceSelect = (place: PlaceAutocompleteSelection) => {
+    onToPlaceSelect?.(place);
+    blurToInput();
+  };
+
+  const handleSearchHistoryEntrySelect = (entry: SearchHistoryEntry) => {
+    onSearchHistorySelect?.(entry);
+    fromInputRef.current?.blur();
+    toInputRef.current?.blur();
+    setFocusedField(null);
+    setActiveDropdown(null);
+  };
 
   const { fillCurrentLocation, selectOnMap } = useSuggestedLocationActions({
     map,
     isMobile,
-    onFromPlaceSelect,
-    onToPlaceSelect,
+    onFromPlaceSelect: handleFromPlaceSelect,
+    onToPlaceSelect: handleToPlaceSelect,
     onMapPickFocusTarget,
+    onMobileMapPickActivate,
     onCollapseMobileSheet
   });
 
@@ -149,28 +252,41 @@ export function RoutePlannerForm({
     clearLocationInputFocus();
   };
 
+  const hideMobileLocationHints = isMobile && fromSelected && toSelected;
+  const fromHintState = hideMobileLocationHints
+    ? 'hidden'
+    : resolveLocationHintState(focusedField === 'from', fromSelected);
+  const toHintState = hideMobileLocationHints
+    ? 'hidden'
+    : resolveLocationHintState(focusedField === 'to', toSelected);
+
   const fromField = (
-    <LocationInputWithDropdown
+    <div className="location-field">
+      <LocationHint inputId={fromInputId} variant="start" state={fromHintState} />
+      <LocationInputWithDropdown
       inputId={fromInputId}
       inputRef={fromInputRef}
       value={from}
       placeholder="Start point"
       map={map}
       suggestions={fromSuggestions}
-      onPlaceSelect={onFromPlaceSelect}
+      onPlaceSelect={handleFromPlaceSelect}
       pinIcon={<StartPinIcon />}
-      wrapperClassName={`${isMobile ? 'sidebar-mobile-location-row' : 'location-pin-input start-loc'}${mapPickTarget === 'start' ? ' is-map-pick-target' : ''}`}
+      wrapperClassName={`${isMobile ? 'sidebar-mobile-location-row' : 'location-pin-input start-loc'}${mapPickHighlightTarget === 'start' ? ' is-map-pick-target' : ''}`}
       isOpen={activeDropdown === 'from'}
       onOpenChange={(open) => setActiveDropdown(open ? 'from' : null)}
       onValueChange={onFromChange}
       onMapPickCancel={onMapPickCancel}
+      placeResolved={fromSelected}
+      inputDisabled={mobileInputsLocked}
+      onInputActivate={handleSheetExpandForInput}
       onFocus={() => {
-        if (isMobile) {
-          onExpandMobileSheetForInput?.();
-        }
+        dismissGreetingIfActive();
+        setFocusedField('from');
         setSuggestedLocationTarget('start');
         onMapPickFocusTarget('start');
       }}
+      onBlur={() => releaseFocusedField('from', fromInputId)}
       trailing={
         <>
           <button
@@ -195,30 +311,35 @@ export function RoutePlannerForm({
         </>
       }
     />
+    </div>
   );
 
   const toField = (
-    <LocationInputWithDropdown
+    <div className="location-field location-field--hint-below">
+      <LocationInputWithDropdown
       inputId={toInputId}
       inputRef={toInputRef}
       value={to}
       placeholder="Destination"
       map={map}
       suggestions={toSuggestions}
-      onPlaceSelect={onToPlaceSelect}
+      onPlaceSelect={handleToPlaceSelect}
       pinIcon={<EndPinIcon />}
-      wrapperClassName={`${isMobile ? 'sidebar-mobile-location-row' : 'location-pin-input end-loc'}${mapPickTarget === 'destination' ? ' is-map-pick-target' : ''}`}
+      wrapperClassName={`${isMobile ? 'sidebar-mobile-location-row' : 'location-pin-input end-loc'}${mapPickHighlightTarget === 'destination' ? ' is-map-pick-target' : ''}`}
       isOpen={activeDropdown === 'to'}
       onOpenChange={(open) => setActiveDropdown(open ? 'to' : null)}
       onValueChange={onToChange}
       onMapPickCancel={onMapPickCancel}
+      placeResolved={toSelected}
+      inputDisabled={mobileInputsLocked}
+      onInputActivate={handleSheetExpandForInput}
       onFocus={() => {
-        if (isMobile) {
-          onExpandMobileSheetForInput?.();
-        }
+        dismissGreetingIfActive();
+        setFocusedField('to');
         setSuggestedLocationTarget('destination');
         onMapPickFocusTarget('destination');
       }}
+      onBlur={() => releaseFocusedField('to', toInputId)}
       trailing={
         <button
           className="clear-btn"
@@ -233,6 +354,8 @@ export function RoutePlannerForm({
         </button>
       }
     />
+      <LocationHint inputId={toInputId} variant="destination" state={toHintState} />
+    </div>
   );
 
   const routePointsView = (
@@ -257,19 +380,31 @@ export function RoutePlannerForm({
   const plannerView = (
     <>
       {isMobile ? (
-        <MobileLocationDragGroup>
+        <MobileLocationDragGroup
+          className={greetingHighlightActive ? 'location-picker--greeting-active' : undefined}>
           {fromField}
           {toField}
         </MobileLocationDragGroup>
       ) : (
-        <div className="location-picker">
+        <div
+          className={`location-picker${isGreetingHighlight ? ' location-picker--greeting-active' : ''}`}
+          ref={locationPickerRef}>
           {fromField}
           {toField}
+          {!routeBuilt && (
+            <GreetingCard
+              anchorRef={locationPickerRef}
+              onActiveChange={setIsGreetingHighlight}
+            />
+          )}
         </div>
       )}
 
       {showSuggestedLocations ? (
         <SuggestedLocations
+          showCurrentLocation={
+            activeSuggestedTarget === 'start' ? !fromIsCurrentLocation : !toIsCurrentLocation
+          }
           onCurrentLocation={() => {
             void fillCurrentLocation(activeSuggestedTarget);
           }}
@@ -287,7 +422,7 @@ export function RoutePlannerForm({
       <SearchHistory
         entries={searchHistoryEntries}
         visible={showSearchHistory}
-        onSelect={(entry) => onSearchHistorySelect?.(entry)}
+        onSelect={handleSearchHistoryEntrySelect}
         onRemove={removeSearchHistoryEntry}
       />
 
@@ -309,9 +444,9 @@ export function RoutePlannerForm({
         onClick={onBuildRoute}
         disabled={isBuildRouteDisabled}
         type="button">
-        Build shortest route
+        Build route
       </button>
-      <p className="helper-text">Find the shortest way and discover what is along it.</p>
+      <p className="helper-text">Build routes and discover interesting places along the way.</p>
     </>
   );
 
@@ -319,7 +454,9 @@ export function RoutePlannerForm({
 
   if (isMobile) {
     return (
-      <div className="sidebar-mobile-form" onPointerDownCapture={handlePanelPointerDown}>
+      <div
+        className={`sidebar-mobile-form${isSheetExpanding ? ' is-sheet-expanding' : ''}`}
+        onPointerDownCapture={handlePanelPointerDown}>
         {content}
       </div>
     );
