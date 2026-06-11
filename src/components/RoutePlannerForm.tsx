@@ -14,7 +14,7 @@ import { SearchHistory } from './SearchHistory';
 import { SuggestedLocations } from './SuggestedLocations';
 import { GreetingCard } from './GreetingCard';
 import { MOBILE_SHEET_ANIMATION_MS } from './MobileRouteSheet';
-import { LocationHint, resolveLocationHintState } from './LocationHint';
+import { LocationHint, resolveLocationHintState, resolveMobileLocationHintState } from './LocationHint';
 import type { SearchHistoryEntry } from '../utils/searchHistory';
 import { isMobileSheetFullyOpen, type ExpandedSheetSnap } from '../utils/mobileRouteSheetSnap';
 import type { InterestingPlace, LatLng, RouteIntermediatePoint } from '../utils/types';
@@ -253,12 +253,14 @@ export function RoutePlannerForm({
   };
 
   const hideMobileLocationHints = isMobile && fromSelected && toSelected;
-  const fromHintState = hideMobileLocationHints
-    ? 'hidden'
-    : resolveLocationHintState(focusedField === 'from', fromSelected);
-  const toHintState = hideMobileLocationHints
-    ? 'hidden'
-    : resolveLocationHintState(focusedField === 'to', toSelected);
+  const fromHintState =
+    hideMobileLocationHints || isMobile
+      ? resolveMobileLocationHintState(fromSelected)
+      : resolveLocationHintState(focusedField === 'from', fromSelected);
+  const toHintState =
+    hideMobileLocationHints || isMobile
+      ? resolveMobileLocationHintState(toSelected)
+      : resolveLocationHintState(focusedField === 'to', toSelected);
 
   const fromField = (
     <div className="location-field">

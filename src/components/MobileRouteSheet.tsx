@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
 import { Sheet, type SheetRef } from 'react-modal-sheet';
+import { useMobileSheetInputFocusGuard } from '../hooks/useMobileSheetInputFocusGuard';
 import type { ExpandedSheetSnap } from '../utils/mobileRouteSheetSnap';
 
 type MobileRouteSheetProps = {
@@ -62,6 +63,8 @@ export function MobileRouteSheet({
 }: Readonly<MobileRouteSheetProps>) {
   const sheetRef = useRef<SheetRef>(null);
   const targetSnap = getSnapIndex(expanded, expandedSnap);
+
+  useMobileSheetInputFocusGuard(true);
 
   useEffect(() => {
     sheetRef.current?.snapTo(targetSnap);

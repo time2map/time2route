@@ -63,3 +63,8 @@ export function resolveLocationHintState(
 
   return 'hidden';
 }
+
+/** On mobile, skip the focus prompt to avoid layout shift when the keyboard opens. */
+export function resolveMobileLocationHintState(selected: boolean): LocationHintState {
+  return selected ? 'success' : 'hidden';
+}

@@ -36,7 +36,7 @@
     z-index: 20;
     width: 100%;
     max-width: 100%;
-    max-height: calc(100dvh - 16px);
+    max-height: calc(100svh - 16px);
     pointer-events: auto;
     display: flex;
     flex-direction: column;
@@ -133,11 +133,17 @@
   }
 
   .sheet-location-drag-group {
+    position: sticky;
+    top: 0;
+    z-index: 2;
     touch-action: none;
+    background: var(--surface);
+    padding-bottom: 4px;
   }
 
   .sheet-location-drag-group .sidebar-mobile-location-row input {
     touch-action: manipulation;
+    scroll-margin: 0;
   }
 
   .sidebar-mobile-location-row {
