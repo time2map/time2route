@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { PlaceAutocompleteSelection } from './api/placeAutocomplete';
 import './AppLayout.css';
 import './AppLayout.mobile.css';
@@ -11,12 +11,14 @@ import { fitMapToRoutePath } from './hooks/map/fitMapToRoutePath';
 import { useUserLocation } from './hooks/map/useUserLocation';
 import { useOnlineStatus } from './hooks/useOnlineStatus';
 import { useCustomRouteStopDetails } from './hooks/useCustomRouteStopDetails';
+import { useRouteUrlSync } from './hooks/useRouteUrlSync';
 import { getDistanceAlongPolylineMeters } from './utils/routePolyline';
 import { sortRouteStopsByPath } from './utils/routeStopOrder';
 import { blurRouteLocationInput } from './utils/locationInputs';
 import { addSearchHistoryEntry } from './utils/searchHistory';
 import { markGreetingCardDismissed } from './utils/greetingCard';
 import { isMobileViewport, type ExpandedSheetSnap } from './utils/mobileRouteSheetSnap';
+import { getInitialRouteFormStateFromUrl } from './utils/routeUrlState';
 import type { SearchHistoryEntry } from './utils/searchHistory';
 import type { ActivityMode, ElevationStats, InterestingPlace, LatLng, RouteIntermediatePoint } from './utils/types';
 
@@ -50,11 +52,14 @@ function normalizeRouteStops(stops: RouteIntermediatePoint[]) {
   return stops.slice(0, MAX_ROUTE_STOPS);
 }
 
+const initialRouteFormState = getInitialRouteFormStateFromUrl();
 
 function App() {
   const isOnline = useOnlineStatus();
+  const shouldAutoBuildRouteFromUrlRef = useRef(initialRouteFormState.shouldAutoBuild);
+  const didAutoBuildRouteFromUrlRef = useRef(false);
   const [routeBuilt, setRouteBuilt] = useState(false);
-  const [mode, setMode] = useState<ActivityMode>('walk');
+  const [mode, setMode] = useState<ActivityMode>(initialRouteFormState.mode);
   const [buildNonce, setBuildNonce] = useState(0);
   const [builtRouteParams, setBuiltRouteParams] = useState<{
     origin: string;
@@ -65,10 +70,12 @@ function App() {
   } | null>(null);
   const [selectedPlace, setSelectedPlace] = useState<string | null>(null);
   const [hoveredPlaceId, setHoveredPlaceId] = useState<string | null>(null);
-  const [from, setFrom] = useState('');
-  const [to, setTo] = useState('');
-  const [startPoint, setStartPoint] = useState<RouteEndpointPoint | null>(null);
-  const [destinationPoint, setDestinationPoint] = useState<RouteEndpointPoint | null>(null);
+  const [from, setFrom] = useState(initialRouteFormState.from);
+  const [to, setTo] = useState(initialRouteFormState.to);
+  const [startPoint, setStartPoint] = useState<RouteEndpointPoint | null>(initialRouteFormState.startPoint);
+  const [destinationPoint, setDestinationPoint] = useState<RouteEndpointPoint | null>(
+    initialRouteFormState.destinationPoint
+  );
   const [mapPickMode, setMapPickMode] = useState(false);
   const [mapPickTarget, setMapPickTarget] = useState<MapPickTarget>(null);
   const [mobileExplicitMapPick, setMobileExplicitMapPick] = useState(false);
@@ -109,42 +116,72 @@ function App() {
     setRouteStopsHintActive(false);
   }, []);
 
+  const triggerRouteBuild = useCallback(
+    (options?: { refreshPlaces?: boolean; recordHistory?: boolean }) => {
+      if (!isOnline) return;
+
+      const refreshPlaces = options?.refreshPlaces ?? true;
+      const recordHistory = options?.recordHistory ?? true;
+
+      if (recordHistory) {
+        addSearchHistoryEntry({
+          from,
+          to,
+          mode,
+          fromLat: startPoint?.lat,
+          fromLng: startPoint?.lng,
+          toLat: destinationPoint?.lat,
+          toLng: destinationPoint?.lng
+        });
+      }
+
+      setBuiltRouteParams({
+        origin: from,
+        destination: to,
+        mode,
+        intermediates: [],
+        refreshPlaces
+      });
+      setBuildNonce((previous) => previous + 1);
+      setRouteBuilt(true);
+      setHighlightedRouteDistanceKm(null);
+      setIsElevationChartFocused(false);
+      setRouteChartZoomTarget(null);
+      setRouteInfo({
+        status: 'loading',
+        distance: '—',
+        duration: '—',
+        elevation: null,
+        interestingPlaces: [],
+        routePath: []
+      });
+      setMobileSheetSnap('peek');
+      setIsMobileSheetExpanded(true);
+    },
+    [destinationPoint, from, isOnline, mode, startPoint, to]
+  );
+
   const handleBuildRoute = useCallback(() => {
-    if (!isOnline) return;
+    triggerRouteBuild();
+  }, [triggerRouteBuild]);
 
-    addSearchHistoryEntry({
-      from,
-      to,
-      mode,
-      fromLat: startPoint?.lat,
-      fromLng: startPoint?.lng,
-      toLat: destinationPoint?.lat,
-      toLng: destinationPoint?.lng
-    });
+  useEffect(() => {
+    if (!shouldAutoBuildRouteFromUrlRef.current || didAutoBuildRouteFromUrlRef.current || !isOnline) {
+      return;
+    }
 
-    setBuiltRouteParams({
-      origin: from,
-      destination: to,
-      mode,
-      intermediates: [],
-      refreshPlaces: true
-    });
-    setBuildNonce((previous) => previous + 1);
-    setRouteBuilt(true);
-    setHighlightedRouteDistanceKm(null);
-    setIsElevationChartFocused(false);
-    setRouteChartZoomTarget(null);
-    setRouteInfo({
-      status: 'loading',
-      distance: '—',
-      duration: '—',
-      elevation: null,
-      interestingPlaces: [],
-      routePath: []
-    });
-    setMobileSheetSnap('peek');
-    setIsMobileSheetExpanded(true);
-  }, [destinationPoint, from, isOnline, mode, startPoint, to]);
+    didAutoBuildRouteFromUrlRef.current = true;
+    triggerRouteBuild({ recordHistory: false });
+  }, [isOnline, triggerRouteBuild]);
+
+  useRouteUrlSync({
+    routeBuilt,
+    from,
+    to,
+    startPoint,
+    destinationPoint,
+    mode: builtRouteParams?.mode ?? mode
+  });
 
   const handleReset = useCallback(() => {
     dismissRouteStopsHint();
