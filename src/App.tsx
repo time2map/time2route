@@ -10,6 +10,7 @@ import { RouteStopsHintEffect } from './components/RouteStopsHintEffect';
 import { fitMapToRoutePath } from './hooks/map/fitMapToRoutePath';
 import { useUserLocation } from './hooks/map/useUserLocation';
 import { useOnlineStatus } from './hooks/useOnlineStatus';
+import { useErrorToast } from './context/ErrorToastContext';
 import { useCustomRouteStopDetails } from './hooks/useCustomRouteStopDetails';
 import { useRouteUrlSync } from './hooks/useRouteUrlSync';
 import { getDistanceAlongPolylineMeters } from './utils/routePolyline';
@@ -19,6 +20,7 @@ import { addSearchHistoryEntry } from './utils/searchHistory';
 import { markGreetingCardDismissed } from './utils/greetingCard';
 import { isMobileViewport, type ExpandedSheetSnap } from './utils/mobileRouteSheetSnap';
 import { getInitialRouteFormStateFromUrl } from './utils/routeUrlState';
+import { areRouteEndpointsEqual } from './utils/routeEndpoints';
 import type { SearchHistoryEntry } from './utils/searchHistory';
 import type { ActivityMode, ElevationStats, InterestingPlace, LatLng, RouteIntermediatePoint } from './utils/types';
 
@@ -40,7 +42,7 @@ type RouteEndpointPoint = {
 };
 
 function isCurrentLocationPlace(place: PlaceAutocompleteSelection): boolean {
-  return place.id.startsWith('current-location-');
+  return place.source === 'current-location' || place.id.startsWith('current-location-');
 }
 
 type MapPickTarget = 'start' | 'destination' | null;
@@ -56,6 +58,7 @@ const initialRouteFormState = getInitialRouteFormStateFromUrl();
 
 function App() {
   const isOnline = useOnlineStatus();
+  const { showErrorToast } = useErrorToast();
   const shouldAutoBuildRouteFromUrlRef = useRef(initialRouteFormState.shouldAutoBuild);
   const didAutoBuildRouteFromUrlRef = useRef(false);
   const [routeBuilt, setRouteBuilt] = useState(false);
@@ -116,9 +119,22 @@ function App() {
     setRouteStopsHintActive(false);
   }, []);
 
+  const showDuplicateEndpointError = useCallback(() => {
+    showErrorToast({
+      variant: 'error',
+      title: 'Start and destination must differ',
+      message: 'Choose two different locations for your route.'
+    });
+  }, [showErrorToast]);
+
+  const hasDuplicateRouteEndpoints = useMemo(
+    () => areRouteEndpointsEqual(startPoint, destinationPoint),
+    [destinationPoint, startPoint]
+  );
+
   const triggerRouteBuild = useCallback(
     (options?: { refreshPlaces?: boolean; recordHistory?: boolean }) => {
-      if (!isOnline) return;
+      if (!isOnline || hasDuplicateRouteEndpoints) return;
 
       const refreshPlaces = options?.refreshPlaces ?? true;
       const recordHistory = options?.recordHistory ?? true;
@@ -158,7 +174,7 @@ function App() {
       setMobileSheetSnap('peek');
       setIsMobileSheetExpanded(true);
     },
-    [destinationPoint, from, isOnline, mode, startPoint, to]
+    [destinationPoint, from, hasDuplicateRouteEndpoints, isOnline, mode, startPoint, to]
   );
 
   const handleBuildRoute = useCallback(() => {
@@ -414,6 +430,11 @@ function App() {
   }, [expandMobileSheetForPlanner]);
 
   const handleMapPickSetStart = useCallback((point: RouteEndpointPoint) => {
+    if (areRouteEndpointsEqual(point, destinationPoint)) {
+      showDuplicateEndpointError();
+      return;
+    }
+
     setStartPoint(point);
     setFrom(point.address);
     blurRouteLocationInput('start');
@@ -433,9 +454,14 @@ function App() {
 
     setMapPickMode(false);
     setMapPickTarget(null);
-  }, [finishMobileMapPick, mobileExplicitMapPick, to]);
+  }, [destinationPoint, finishMobileMapPick, mobileExplicitMapPick, showDuplicateEndpointError, to]);
 
   const handleMapPickSetDestination = useCallback((point: RouteEndpointPoint) => {
+    if (areRouteEndpointsEqual(point, startPoint)) {
+      showDuplicateEndpointError();
+      return;
+    }
+
     setDestinationPoint(point);
     setTo(point.address);
     blurRouteLocationInput('destination');
@@ -445,7 +471,7 @@ function App() {
     if (mobileExplicitMapPick) {
       finishMobileMapPick();
     }
-  }, [finishMobileMapPick, mobileExplicitMapPick]);
+  }, [finishMobileMapPick, mobileExplicitMapPick, showDuplicateEndpointError, startPoint]);
 
   const handleFromChange = useCallback((value: string) => {
     setFrom(value);
@@ -462,6 +488,11 @@ function App() {
   }, []);
 
   const handleFromPlaceSelect = useCallback((place: PlaceAutocompleteSelection) => {
+    if (areRouteEndpointsEqual(place, destinationPoint)) {
+      showDuplicateEndpointError();
+      return;
+    }
+
     const address = place.address ?? place.name;
     setFrom(address);
     setStartPoint({
@@ -472,9 +503,14 @@ function App() {
     });
     setMapPickMode(false);
     setMapPickTarget(null);
-  }, []);
+  }, [destinationPoint, showDuplicateEndpointError]);
 
   const handleToPlaceSelect = useCallback((place: PlaceAutocompleteSelection) => {
+    if (areRouteEndpointsEqual(place, startPoint)) {
+      showDuplicateEndpointError();
+      return;
+    }
+
     const address = place.address ?? place.name;
     setTo(address);
     setDestinationPoint({
@@ -485,7 +521,7 @@ function App() {
     });
     setMapPickMode(false);
     setMapPickTarget(null);
-  }, []);
+  }, [showDuplicateEndpointError, startPoint]);
 
   const handleSwapLocations = useCallback(() => {
     setFrom(to);
@@ -606,6 +642,7 @@ function App() {
           toSelected={destinationPoint !== null && Boolean(to.trim())}
           fromIsCurrentLocation={startPoint?.source === 'current-location'}
           toIsCurrentLocation={destinationPoint?.source === 'current-location'}
+          hasDuplicateRouteEndpoints={hasDuplicateRouteEndpoints}
           greetingHighlightActive={greetingHighlightActive}
           onDismissGreeting={dismissGreeting}
           onLocateUser={handleLocateUser}

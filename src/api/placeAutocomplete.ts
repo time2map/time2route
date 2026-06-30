@@ -6,6 +6,7 @@ export type PlaceAutocompleteSelection = {
   lat: number;
   lng: number;
   address?: string;
+  source?: 'current-location';
 };
 
 export type MapPickPoint = {

@@ -6,6 +6,7 @@ import {
 import type { InterestingPlace } from '../utils/types';
 
 type PlaceMapPopupOverlayProps = {
+  map: google.maps.Map | null;
   place: InterestingPlace;
   isAddedToRoute: boolean;
   photoUrl?: string;
@@ -14,6 +15,7 @@ type PlaceMapPopupOverlayProps = {
 };
 
 export function PlaceMapPopupOverlay({
+  map,
   place,
   isAddedToRoute,
   photoUrl,
@@ -21,6 +23,27 @@ export function PlaceMapPopupOverlay({
   onAction
 }: Readonly<PlaceMapPopupOverlayProps>) {
   const hostRef = useRef<HTMLDivElement>(null);
+  const onActionRef = useRef(onAction);
+  const placeRef = useRef(place);
+
+  useEffect(() => {
+    onActionRef.current = onAction;
+    placeRef.current = place;
+  }, [onAction, place]);
+
+  useEffect(() => {
+    if (!map) {
+      return;
+    }
+
+    const listener = map.addListener('dragstart', () => {
+      onActionRef.current('close', placeRef.current);
+    });
+
+    return () => {
+      google.maps.event.removeListener(listener);
+    };
+  }, [map]);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -46,12 +69,6 @@ export function PlaceMapPopupOverlay({
 
   return (
     <div className="map-place-popup-overlay" role="presentation">
-      <button
-        type="button"
-        className="map-place-popup-overlay__backdrop"
-        aria-label="Close"
-        onClick={() => onAction('close', place)}
-      />
       <div className="map-place-popup-overlay__dialog" ref={hostRef} />
     </div>
   );

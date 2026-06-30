@@ -61,12 +61,22 @@ type RoutePlannerFormProps = {
   toSelected?: boolean;
   fromIsCurrentLocation?: boolean;
   toIsCurrentLocation?: boolean;
+  hasDuplicateRouteEndpoints?: boolean;
   greetingHighlightActive?: boolean;
   onDismissGreeting?: () => void;
   onBuildButtonSnapHeightChange?: (heightPx: number) => void;
 };
 
 type ActiveDropdown = 'from' | 'to' | null;
+
+const LOCATION_PLANNER_INTERACTIVE_SELECTOR = [
+  '[data-location-field]',
+  '.suggested-locations',
+  '.location-chip',
+  '.search-history',
+  '.segmented-control',
+  '.cta-btn'
+].join(', ');
 
 export function RoutePlannerForm({
   variant,
@@ -108,6 +118,7 @@ export function RoutePlannerForm({
   toSelected = false,
   fromIsCurrentLocation = false,
   toIsCurrentLocation = false,
+  hasDuplicateRouteEndpoints = false,
   greetingHighlightActive = false,
   onDismissGreeting,
   onBuildButtonSnapHeightChange
@@ -124,6 +135,9 @@ export function RoutePlannerForm({
   const buildRouteButtonRef = useRef<HTMLButtonElement>(null);
   const [isGreetingHighlight, setIsGreetingHighlight] = useState(false);
   const [focusedField, setFocusedField] = useState<'from' | 'to' | null>(null);
+  const [pendingCurrentLocationTarget, setPendingCurrentLocationTarget] = useState<
+    'start' | 'destination' | null
+  >(null);
   const [isSheetExpanding, setIsSheetExpanding] = useState(false);
   const sheetExpandTimerRef = useRef<number | null>(null);
   const isMobileSheetOpen = isMobile && isMobileSheetFullyOpen(isMobileSheetExpanded, mobileSheetSnap);
@@ -185,7 +199,12 @@ export function RoutePlannerForm({
 
   const releaseFocusedField = (field: 'from' | 'to', inputId: string) => {
     globalThis.setTimeout(() => {
-      if (document.activeElement?.closest(`[data-location-field="${inputId}"]`)) {
+      const activeElement = document.activeElement;
+      if (activeElement?.closest(`[data-location-field="${inputId}"]`)) {
+        return;
+      }
+
+      if (activeElement?.closest(LOCATION_PLANNER_INTERACTIVE_SELECTOR)) {
         return;
       }
 
@@ -193,10 +212,33 @@ export function RoutePlannerForm({
     }, 0);
   };
 
-  const isBuildRouteDisabled = !from.trim() || !to.trim() || !isOnline;
+  const isBuildRouteDisabled =
+    !from.trim() || !to.trim() || !isOnline || hasDuplicateRouteEndpoints;
   const showSuggestedLocations = !from.trim() || !to.trim();
   const activeSuggestedTarget: 'start' | 'destination' =
-    !from.trim() && to.trim() ? 'start' : from.trim() && !to.trim() ? 'destination' : suggestedLocationTarget;
+    !from.trim() && to.trim() ? 'start' : suggestedLocationTarget;
+  const suggestedActionsTarget: 'start' | 'destination' =
+    focusedField === 'from' ? 'start' : focusedField === 'to' ? 'destination' : activeSuggestedTarget;
+  const oppositeHasCurrentLocation =
+    suggestedActionsTarget === 'start' ? toIsCurrentLocation : fromIsCurrentLocation;
+  const isCurrentLocationSelectedForTarget =
+    suggestedActionsTarget === 'start'
+      ? fromIsCurrentLocation || pendingCurrentLocationTarget === 'start'
+      : toIsCurrentLocation || pendingCurrentLocationTarget === 'destination';
+  const showCurrentLocationChip =
+    !isCurrentLocationSelectedForTarget && !oppositeHasCurrentLocation;
+
+  useEffect(() => {
+    if (fromIsCurrentLocation) {
+      setPendingCurrentLocationTarget((current) => (current === 'start' ? null : current));
+    }
+  }, [fromIsCurrentLocation]);
+
+  useEffect(() => {
+    if (toIsCurrentLocation) {
+      setPendingCurrentLocationTarget((current) => (current === 'destination' ? null : current));
+    }
+  }, [toIsCurrentLocation]);
 
   const { entries: searchHistoryEntries, removeEntry: removeSearchHistoryEntry } =
     useSearchHistory();
@@ -243,6 +285,18 @@ export function RoutePlannerForm({
     onCollapseMobileSheet
   });
 
+  const handleCurrentLocationSelect = () => {
+    if (oppositeHasCurrentLocation || isCurrentLocationSelectedForTarget) {
+      return;
+    }
+
+    const target = suggestedActionsTarget;
+    setPendingCurrentLocationTarget(target);
+    void fillCurrentLocation(target).finally(() => {
+      setPendingCurrentLocationTarget((current) => (current === target ? null : current));
+    });
+  };
+
   const clearLocationInputFocus = () => {
     const activeElement = document.activeElement;
     if (activeElement instanceof HTMLElement && activeElement.closest('[data-location-field]')) {
@@ -257,7 +311,7 @@ export function RoutePlannerForm({
 
   const handlePanelPointerDown = (event: React.PointerEvent<HTMLElement>) => {
     const target = event.target;
-    if (!(target instanceof Element) || target.closest('[data-location-field]')) {
+    if (!(target instanceof Element) || target.closest(LOCATION_PLANNER_INTERACTIVE_SELECTOR)) {
       return;
     }
 
@@ -416,17 +470,13 @@ export function RoutePlannerForm({
 
       {showSuggestedLocations ? (
         <SuggestedLocations
-          showCurrentLocation={
-            activeSuggestedTarget === 'start' ? !fromIsCurrentLocation : !toIsCurrentLocation
-          }
-          onCurrentLocation={() => {
-            void fillCurrentLocation(activeSuggestedTarget);
-          }}
+          showCurrentLocation={showCurrentLocationChip}
+          onCurrentLocation={handleCurrentLocationSelect}
           onSelectOnMap={() => {
-            selectOnMap(activeSuggestedTarget);
+            selectOnMap(suggestedActionsTarget);
             if (!isMobile) {
               const input =
-                activeSuggestedTarget === 'start' ? fromInputRef.current : toInputRef.current;
+                suggestedActionsTarget === 'start' ? fromInputRef.current : toInputRef.current;
               input?.focus({ preventScroll: true });
             }
           }}

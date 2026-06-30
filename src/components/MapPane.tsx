@@ -268,6 +268,7 @@ export function MapPane(props: Readonly<MapPaneProps>) {
 
       {places.centerPopupOnScreen && places.activePopupPlace ? (
         <PlaceMapPopupOverlay
+          map={map}
           place={places.activePopupPlace}
           isAddedToRoute={places.isActivePopupAddedToRoute}
           photoUrl={places.activePopupPhotoUrl}

@@ -28,13 +28,17 @@ function PinIcon() {
   );
 }
 
+const preventInputBlurOnPointerDown = (event: React.PointerEvent<HTMLElement>) => {
+  event.preventDefault();
+};
+
 export function SuggestedLocations({
   onCurrentLocation,
   onSelectOnMap,
   showCurrentLocation = true
 }: Readonly<SuggestedLocationsProps>) {
   return (
-    <div className="suggested-locations">
+    <div className="suggested-locations" onPointerDown={preventInputBlurOnPointerDown}>
       {showCurrentLocation ? (
         <button type="button" className="location-chip" onClick={onCurrentLocation}>
           <CurrentLocationIcon />
@@ -42,11 +46,7 @@ export function SuggestedLocations({
         </button>
       ) : null}
 
-      <button
-        type="button"
-        className="location-chip"
-        onMouseDown={(event) => event.preventDefault()}
-        onClick={onSelectOnMap}>
+      <button type="button" className="location-chip" onClick={onSelectOnMap}>
         <PinIcon />
         Select on the map
       </button>

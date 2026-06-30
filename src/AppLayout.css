@@ -2001,6 +2001,7 @@
   box-shadow: var(--shadow-md);
   overflow: hidden;
   backdrop-filter: blur(8px);
+  touch-action: manipulation;
 }
 
 .map-nav-controls-btn {
@@ -2017,6 +2018,7 @@
   place-items: center;
   padding: 0;
   transition: background 0.15s;
+  touch-action: manipulation;
 }
 
 .map-nav-controls-btn:hover {

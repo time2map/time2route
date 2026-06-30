@@ -73,7 +73,8 @@ export function useSuggestedLocationActions({
           name: location.name,
           lat: location.lat,
           lng: location.lng,
-          address: location.address
+          address: location.address,
+          source: 'current-location'
         };
 
         applyPlaceToTarget(target, place, onFromPlaceSelect, onToPlaceSelect);

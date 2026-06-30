@@ -64,6 +64,7 @@ type SidebarProps = {
   toSelected?: boolean;
   fromIsCurrentLocation?: boolean;
   toIsCurrentLocation?: boolean;
+  hasDuplicateRouteEndpoints?: boolean;
   greetingHighlightActive?: boolean;
   onDismissGreeting?: () => void;
   onLocateUser?: () => void;
@@ -111,6 +112,7 @@ export function Sidebar(props: Readonly<SidebarProps>) {
     toSelected = false,
     fromIsCurrentLocation = false,
     toIsCurrentLocation = false,
+    hasDuplicateRouteEndpoints = false,
     greetingHighlightActive = false,
     onDismissGreeting,
     onLocateUser,
@@ -223,6 +225,7 @@ export function Sidebar(props: Readonly<SidebarProps>) {
     toSelected,
     fromIsCurrentLocation,
     toIsCurrentLocation,
+    hasDuplicateRouteEndpoints,
     onExpandMobileSheetForInput: isMobile
       ? () => {
           onMobileSheetSnapChange('penultimate');

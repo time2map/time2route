@@ -1,7 +1,24 @@
-import { useCallback } from 'react';
+import { useCallback, type SyntheticEvent } from 'react';
 
 const MIN_ZOOM = 3;
 const MAX_ZOOM = 21;
+
+const stopMapGesturePropagation = (event: SyntheticEvent) => {
+  event.stopPropagation();
+};
+
+const stopMapDoubleTapGesture = (event: SyntheticEvent) => {
+  event.stopPropagation();
+  event.preventDefault();
+};
+
+const mapGestureBlockProps = {
+  onDoubleClick: stopMapDoubleTapGesture,
+  onDoubleClickCapture: stopMapDoubleTapGesture,
+  onTouchStartCapture: stopMapGesturePropagation,
+  onTouchEndCapture: stopMapGesturePropagation,
+  onPointerDownCapture: stopMapGesturePropagation
+} as const;
 
 type MapNavigationControlsProps = {
   map: google.maps.Map | null;
@@ -25,12 +42,13 @@ export function MapNavigationControls({ map }: Readonly<MapNavigationControlsPro
   }
 
   return (
-    <div className="map-float map-nav-controls">
+    <div className="map-float map-nav-controls" {...mapGestureBlockProps}>
       <button
         className="map-nav-controls-btn"
         type="button"
         onClick={handleZoomIn}
-        aria-label="Zoom in">
+        aria-label="Zoom in"
+        {...mapGestureBlockProps}>
         +
       </button>
 
@@ -40,7 +58,8 @@ export function MapNavigationControls({ map }: Readonly<MapNavigationControlsPro
         className="map-nav-controls-btn"
         type="button"
         onClick={handleZoomOut}
-        aria-label="Zoom out">
+        aria-label="Zoom out"
+        {...mapGestureBlockProps}>
         −
       </button>
     </div>
