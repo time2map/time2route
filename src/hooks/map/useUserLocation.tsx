@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { ensureUserLocationMarker } from '../../components/mapComponents/ensureUserLocationMarker';
 import { useErrorToast } from '../../context/ErrorToastContext';
 import { detectUserLocation, isApproximateUserLocation, type UserLocation } from '../../utils/detectUserLocation';
+import { hasMapViewportInUrl } from '../../utils/mapUrlState';
 
 type UseUserLocationParams = {
   mapRef: React.RefObject<google.maps.Map | null>;
@@ -133,6 +134,10 @@ export function useUserLocation({
     }
 
     hasAttemptedInitialLocate = true;
+
+    if (hasMapViewportInUrl()) {
+      return;
+    }
 
     let cancelled = false;
 

@@ -15,6 +15,7 @@ import { useMapViewport } from '../hooks/map/useMapViewport';
 import { useMapPickPopup } from '../hooks/map/useMapPickPopup';
 import { useMapDragCollapseSheet } from '../hooks/map/useMapDragCollapseSheet';
 import { useMapMarkerVisibility } from '../hooks/map/useMapMarkerVisibility';
+import { useMapUrlSync } from '../hooks/map/useMapUrlSync';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { resolveGoogleMapId } from '../hooks/map/mapPaneConstants';
 import type { RouteEndpointPoint } from '../hooks/map/mapPaneTypes';
@@ -116,6 +117,7 @@ export function MapPane(props: Readonly<MapPaneProps>) {
 
   const { mapContainerRef, map, isReady } = useGoogleMapInit({ apiKey, mapId, onMapReady });
 
+  useMapUrlSync(map);
   useMapDragCollapseSheet(map, onMapUserMove);
 
   const click = useMapClickHandling({
@@ -213,6 +215,7 @@ export function MapPane(props: Readonly<MapPaneProps>) {
 
   useMapPickPopup({
     pickPinElRef: click.pickPinElRef,
+    pickMarkerRef: click.pickMarkerRef,
     mapPick: click.mapPick,
     routeBuilt,
     intermediates,

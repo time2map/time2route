@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { bindMapViewportBounds } from '../../api/placeAutocomplete';
 import { useMapPaneMarkers } from '../useMapPaneMarkers';
 import { DEFAULT_MAP_CENTER } from './mapPaneConstants';
+import { readMapViewportFromUrl } from '../../utils/mapUrlState';
 
 type UseGoogleMapInitParams = {
   apiKey: string | undefined;
@@ -27,9 +28,11 @@ export function useGoogleMapInit({ apiKey, mapId, onMapReady }: UseGoogleMapInit
         const mapsApi = getGoogleMapsNamespace()?.maps;
         if (!mapsApi) return;
 
+        const urlViewport = readMapViewportFromUrl();
+
         mapRef.current ??= new mapsApi.Map(mapContainerRef.current, {
-          center: DEFAULT_MAP_CENTER,
-          zoom: 13,
+          center: urlViewport ?? DEFAULT_MAP_CENTER,
+          zoom: urlViewport?.zoom ?? 13,
           disableDefaultUI: true,
           zoomControl: false,
           mapTypeControl: false,

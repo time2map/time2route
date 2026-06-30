@@ -2143,7 +2143,7 @@
   padding: 12px 14px;
   min-width: 220px;
   max-width: 300px;
-  z-index: 100;
+  z-index: 1000;
   animation: pick-popup-in 0.2s ease-out;
   white-space: nowrap;
   pointer-events: auto;

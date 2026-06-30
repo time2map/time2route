@@ -1,3 +1,5 @@
+import { MAP_PICK_MARKER_Z_INDEX } from '../../hooks/map/mapPaneConstants';
+
 export async function ensurePickMarker(
   map: google.maps.Map,
   position: google.maps.LatLngLiteral,
@@ -6,6 +8,7 @@ export async function ensurePickMarker(
 ): Promise<void> {
   if (pickMarkerRef.current) {
     pickMarkerRef.current.position = position;
+    pickMarkerRef.current.zIndex = MAP_PICK_MARKER_Z_INDEX;
     return;
   }
 
@@ -16,7 +19,8 @@ export async function ensurePickMarker(
 
   const marker = new AdvancedMarkerElement({
     map,
-    position
+    position,
+    zIndex: MAP_PICK_MARKER_Z_INDEX
   });
   marker.append(pinEl);
   pickMarkerRef.current = marker;

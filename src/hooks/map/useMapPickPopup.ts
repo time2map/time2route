@@ -9,6 +9,7 @@ import type { InterestingPlace, RouteIntermediatePoint } from '../../utils/types
 
 type UseMapPickPopupParams = {
   pickPinElRef: React.RefObject<HTMLDivElement | null>;
+  pickMarkerRef: React.RefObject<google.maps.marker.AdvancedMarkerElement | null>;
   mapPick: MapPickState | null;
   routeBuilt: boolean;
   intermediates: RouteIntermediatePoint[];
@@ -22,6 +23,7 @@ type UseMapPickPopupParams = {
 
 export function useMapPickPopup({
   pickPinElRef,
+  pickMarkerRef,
   mapPick,
   routeBuilt,
   intermediates,
@@ -77,6 +79,7 @@ export function useMapPickPopup({
       pick: mapPick,
       routeBuilt,
       isAddedToRoute: mapPickAddedToRoute,
+      marker: pickMarkerRef.current,
       onSuppressMapClick: ignoreNextClick,
       onAction: (action) => {
         if (action === 'close') {
@@ -103,6 +106,7 @@ export function useMapPickPopup({
     ignoreNextClick,
     mapPick,
     mapPickAddedToRoute,
+    pickMarkerRef,
     pickPinElRef,
     routeBuilt
   ]);

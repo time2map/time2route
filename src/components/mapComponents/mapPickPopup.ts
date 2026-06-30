@@ -1,4 +1,5 @@
 import type { MapPickPoint } from '../../api/placeAutocomplete';
+import { MAP_PICK_MARKER_Z_INDEX } from '../../hooks/map/mapPaneConstants';
 import { escapePlaceHtml } from '../../utils/placeFormat';
 import type { InterestingPlace } from '../../utils/types';
 
@@ -11,6 +12,7 @@ type SyncMapPickPopupParams = {
   pick: MapPickPoint | null;
   routeBuilt: boolean;
   isAddedToRoute?: boolean;
+  marker?: google.maps.marker.AdvancedMarkerElement | null;
   onAction: (action: MapPickPopupAction) => void;
   onSuppressMapClick?: () => void;
 };
@@ -126,6 +128,7 @@ export function syncMapPickPopupOnPin({
   pick,
   routeBuilt,
   isAddedToRoute = false,
+  marker = null,
   onAction,
   onSuppressMapClick
 }: SyncMapPickPopupParams): void {
@@ -138,7 +141,12 @@ export function syncMapPickPopupOnPin({
     return;
   }
 
+  if (marker) {
+    marker.zIndex = MAP_PICK_MARKER_Z_INDEX;
+  }
+
   pinEl.style.overflow = 'visible';
+  pinEl.style.zIndex = String(MAP_PICK_MARKER_Z_INDEX);
   pinEl.appendChild(
     createMapPickPopup({
       pick,
