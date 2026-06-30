@@ -28,7 +28,7 @@ function renderPickActionsMarkup(routeBuilt: boolean, isAddedToRoute: boolean): 
     return `
       <div class="map-pick-popup-actions map-pick-popup-actions--route">
         <button type="button" class="${addStopClass}" data-action="add-stop">${addStopLabel}</button>
-        <button type="button" class="popup-gmaps" data-action="open-gmaps">Open in Google Maps</button>
+        <button type="button" class="popup-gmaps" data-action="open-gmaps">Google Maps</button>
       </div>
     `;
   }

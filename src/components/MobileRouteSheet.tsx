@@ -1,20 +1,24 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import type { ReactNode } from 'react';
 import { Sheet, type SheetRef } from 'react-modal-sheet';
 import { useMobileSheetInputFocusGuard } from '../hooks/useMobileSheetInputFocusGuard';
-import type { ExpandedSheetSnap } from '../utils/mobileRouteSheetSnap';
+import {
+  getMobileSheetSnapPointsProp,
+  type ExpandedSheetSnap
+} from '../utils/mobileRouteSheetSnap';
 
 type MobileRouteSheetProps = {
   expanded: boolean;
   expandedSnap?: ExpandedSheetSnap;
+  routeBuilt?: boolean;
+  middleSnapHeightPx?: number;
   title: string;
   children: ReactNode;
+  locationButton?: ReactNode;
   onExpandedChange: (expanded: boolean) => void;
   onSnapChange?: (snap: ExpandedSheetSnap) => void;
   onReset?: () => void;
 };
-
-export const MOBILE_SHEET_SNAP_POINTS = [0, 0.22,0.5, 1] as const;
 
 export const MOBILE_SHEET_ANIMATION_MS = 350;
 
@@ -22,7 +26,7 @@ export const MOBILE_SHEET_MAP_MOVE_SNAP_INDEX = 1;
 
 export const MOBILE_SHEET_MIDDLE_SNAP_INDEX = 2;
 
-const MOBILE_SHEET_FULL_SNAP_INDEX = MOBILE_SHEET_SNAP_POINTS.length - 1;
+const MOBILE_SHEET_FULL_SNAP_INDEX = 3;
 
 function getSnapIndex(expanded: boolean, expandedSnap: ExpandedSheetSnap) {
   if (!expanded) {
@@ -55,20 +59,44 @@ function snapIndexToExpandedSnap(snapIndex: number): ExpandedSheetSnap {
 export function MobileRouteSheet({
   expanded,
   expandedSnap = 'peek',
+  routeBuilt = false,
+  middleSnapHeightPx,
   title,
   children,
+  locationButton,
   onExpandedChange,
   onSnapChange,
   onReset
 }: Readonly<MobileRouteSheetProps>) {
   const sheetRef = useRef<SheetRef>(null);
+  const sheetReadyRef = useRef(false);
   const targetSnap = getSnapIndex(expanded, expandedSnap);
+  const targetSnapRef = useRef(targetSnap);
+  targetSnapRef.current = targetSnap;
+
+  const snapPoints = useMemo(
+    () => getMobileSheetSnapPointsProp(middleSnapHeightPx, routeBuilt),
+    [middleSnapHeightPx, routeBuilt]
+  );
 
   useMobileSheetInputFocusGuard(true);
 
+  const applyTargetSnap = useCallback(() => {
+    if (!sheetReadyRef.current) {
+      return;
+    }
+
+    sheetRef.current?.snapTo(targetSnapRef.current);
+  }, []);
+
   useEffect(() => {
-    sheetRef.current?.snapTo(targetSnap);
-  }, [targetSnap]);
+    applyTargetSnap();
+  }, [applyTargetSnap, snapPoints, targetSnap]);
+
+  const handleOpenEnd = useCallback(() => {
+    sheetReadyRef.current = true;
+    applyTargetSnap();
+  }, [applyTargetSnap]);
 
   const handleClose = useCallback(() => {
     sheetRef.current?.snapTo(0);
@@ -94,12 +122,15 @@ export function MobileRouteSheet({
       isOpen
       disableDismiss
       disableScrollLocking
-      snapPoints={[...MOBILE_SHEET_SNAP_POINTS]}
+      snapPoints={snapPoints}
       initialSnap={targetSnap}
       onSnap={handleSnap}
       onClose={handleClose}
+      onOpenEnd={handleOpenEnd}
       tweenConfig={{ ease: 'easeOut', duration: 0.32 }}>
       <Sheet.Container unstyled className="sidebar-mobile-sheet">
+        {locationButton}
+
         <Sheet.Header unstyled className="sidebar-mobile-sheet-header">
           <div className="sidebar-mobile-sheet-handle" aria-hidden="true">
             <Sheet.DragIndicator unstyled className="sidebar-mobile-sheet-handle-bar" />

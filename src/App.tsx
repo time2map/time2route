@@ -7,15 +7,15 @@ import { Sidebar } from './components/Sidebar';
 import { OfflineNetworkNotifier } from './components/OfflineNetworkNotifier';
 import { GreetingHintEffect } from './components/GreetingHintEffect';
 import { RouteStopsHintEffect } from './components/RouteStopsHintEffect';
-import { ErrorToastProvider } from './context/ErrorToastContext';
-import { markGreetingCardDismissed } from './utils/greetingCard';
 import { fitMapToRoutePath } from './hooks/map/fitMapToRoutePath';
+import { useUserLocation } from './hooks/map/useUserLocation';
 import { useOnlineStatus } from './hooks/useOnlineStatus';
 import { useCustomRouteStopDetails } from './hooks/useCustomRouteStopDetails';
 import { getDistanceAlongPolylineMeters } from './utils/routePolyline';
 import { sortRouteStopsByPath } from './utils/routeStopOrder';
 import { blurRouteLocationInput } from './utils/locationInputs';
 import { addSearchHistoryEntry } from './utils/searchHistory';
+import { markGreetingCardDismissed } from './utils/greetingCard';
 import { isMobileViewport, type ExpandedSheetSnap } from './utils/mobileRouteSheetSnap';
 import type { SearchHistoryEntry } from './utils/searchHistory';
 import type { ActivityMode, ElevationStats, InterestingPlace, LatLng, RouteIntermediatePoint } from './utils/types';
@@ -73,6 +73,12 @@ function App() {
   const [mapPickTarget, setMapPickTarget] = useState<MapPickTarget>(null);
   const [mobileExplicitMapPick, setMobileExplicitMapPick] = useState(false);
   const [mapInstance, setMapInstance] = useState<google.maps.Map | null>(null);
+  const mapRef = useRef<google.maps.Map | null>(null);
+  const { handleLocateUser, isLocating } = useUserLocation({
+    mapRef,
+    isReady: mapInstance !== null,
+    autoLocateOnLoad: true
+  });
   const [routeInfo, setRouteInfo] = useState<RouteInfo>({
     status: 'idle',
     distance: '—',
@@ -452,6 +458,7 @@ function App() {
   }, [destinationPoint, from, startPoint, to]);
 
   const handleMapReady = useCallback((map: google.maps.Map) => {
+    mapRef.current = map;
     setMapInstance(map);
   }, []);
 
@@ -505,7 +512,7 @@ function App() {
   }, [customStopPlaces, routeInfo.interestingPlaces]);
 
   return (
-    <ErrorToastProvider>
+    <>
       <GreetingHintEffect
         routeBuilt={routeBuilt}
         mapReady={mapInstance !== null}
@@ -564,6 +571,8 @@ function App() {
           toIsCurrentLocation={destinationPoint?.source === 'current-location'}
           greetingHighlightActive={greetingHighlightActive}
           onDismissGreeting={dismissGreeting}
+          onLocateUser={handleLocateUser}
+          isLocating={isLocating}
         />
         <MapPane
           routeBuilt={routeBuilt}
@@ -597,10 +606,12 @@ function App() {
           onMapUserMove={handleMapUserMove}
           onCollapseMobileSheet={handleCollapseMobileSheetToPeek}
           routeStopsHintActive={routeStopsHintActive}
+          onLocateUser={handleLocateUser}
+          isLocating={isLocating}
         />
       </section>
     </main>
-    </ErrorToastProvider>
+    </>
   );
 }
 

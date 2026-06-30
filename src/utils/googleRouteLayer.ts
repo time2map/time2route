@@ -112,6 +112,7 @@ export async function buildAndDrawRoute({
     strokeColor: getRouteStrokeColor(activityMode),
     strokeOpacity: 0.95,
     strokeWeight: 6,
+    clickable: false
   })
 
   clearRouteFromMap()

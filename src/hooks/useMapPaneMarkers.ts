@@ -39,6 +39,7 @@ export type PlaceMarkerPopupContext = {
   hoveredPlaceId: string | null;
   routeStopIds: Set<string>;
   routeStopsHintActive?: boolean;
+  centerPopupOnScreen?: boolean;
   placePhotos: Record<string, PlacePhotoState>;
   onPlaceMarkerClick: (placeId: string) => void;
   onPopupAction: (action: PlaceMapPopupAction, place: InterestingPlace) => void;
@@ -222,7 +223,9 @@ function createPlaceMarkerElement(params: {
 
   if (showMapPopup) {
     element.classList.add('has-detail-popup');
-    element.appendChild(createPlaceMapPopup(popupParams));
+    if (!popupContext.centerPopupOnScreen) {
+      element.appendChild(createPlaceMapPopup(popupParams));
+    }
   }
 
   return element;

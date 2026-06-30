@@ -63,7 +63,8 @@ export function useRouteProgressHighlight({
         strokeColor: '#fcfdff',
         strokeOpacity: 1,
         strokeWeight: 8,
-        zIndex: 10
+        zIndex: 10,
+        clickable: false
       });
     }
 
@@ -74,7 +75,8 @@ export function useRouteProgressHighlight({
         strokeColor: routeColor,
         strokeOpacity: 0.28,
         strokeWeight: 6,
-        zIndex: 4
+        zIndex: 4,
+        clickable: false
       });
     }
   }, [

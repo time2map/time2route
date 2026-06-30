@@ -2,6 +2,8 @@ import { useEffect, useRef } from 'react';
 import type { ActivityMode, ElevationStats, InterestingPlace, RouteIntermediatePoint } from '../utils/types';
 import { MapAreaSearch } from './MapAreaSearch';
 import { MapMyLocationButton } from './MapMyLocationButton';
+import { MapNavigationControls } from './MapNavigationControls';
+import { PlaceMapPopupOverlay } from './PlaceMapPopupOverlay';
 import { useGoogleMapInit } from '../hooks/map/useGoogleMapInit';
 import { useMapClickHandling } from '../hooks/map/useMapClickHandling';
 import { useRouteBuilder } from '../hooks/map/useRouteBuilder';
@@ -11,9 +13,9 @@ import { useCustomRouteStopMarkers } from '../hooks/map/useCustomRouteStopMarker
 import { useEndpointMarkers } from '../hooks/map/useEndpointMarkers';
 import { useMapViewport } from '../hooks/map/useMapViewport';
 import { useMapPickPopup } from '../hooks/map/useMapPickPopup';
-import { useUserLocation } from '../hooks/map/useUserLocation';
 import { useMapDragCollapseSheet } from '../hooks/map/useMapDragCollapseSheet';
 import { useMapMarkerVisibility } from '../hooks/map/useMapMarkerVisibility';
+import { useMediaQuery } from '../hooks/useMediaQuery';
 import { resolveGoogleMapId } from '../hooks/map/mapPaneConstants';
 import type { RouteEndpointPoint } from '../hooks/map/mapPaneTypes';
 
@@ -62,6 +64,8 @@ export type MapPaneProps = {
   onMapUserMove?: () => void;
   onCollapseMobileSheet?: () => void;
   routeStopsHintActive?: boolean;
+  onLocateUser: () => void;
+  isLocating?: boolean;
 };
 
 export function MapPane(props: Readonly<MapPaneProps>) {
@@ -96,8 +100,13 @@ export function MapPane(props: Readonly<MapPaneProps>) {
     routeChartZoomTarget,
     onMapUserMove,
     onCollapseMobileSheet,
-    routeStopsHintActive = false
+    routeStopsHintActive = false,
+    onLocateUser,
+    isLocating = false
   } = props;
+
+  const isMobile = useMediaQuery('(max-width: 768px)');
+  const showDesktopLocationButton = !isMobile;
 
   const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
   const mapId = resolveGoogleMapId(import.meta.env.VITE_GOOGLE_MAPS_MAP_ID as string | undefined);
@@ -105,7 +114,7 @@ export function MapPane(props: Readonly<MapPaneProps>) {
   const lastRoutePathRef = useRef<google.maps.LatLngLiteral[]>([]);
   const closePlacePopupRef = useRef<() => void>(() => {});
 
-  const { mapContainerRef, mapRef, map, isReady } = useGoogleMapInit({ apiKey, mapId, onMapReady });
+  const { mapContainerRef, map, isReady } = useGoogleMapInit({ apiKey, mapId, onMapReady });
 
   useMapDragCollapseSheet(map, onMapUserMove);
 
@@ -215,12 +224,6 @@ export function MapPane(props: Readonly<MapPaneProps>) {
     onAddPlaceToRoute
   });
 
-  const { handleLocateUser, isLocating } = useUserLocation({
-    mapRef,
-    isReady,
-    autoLocateOnLoad: true
-  });
-
   useMapMarkerVisibility({
     map,
     isReady,
@@ -252,16 +255,30 @@ export function MapPane(props: Readonly<MapPaneProps>) {
           />
         ) : null}
         {routeBuilt && (
-          <div className="map-badge">
+          <div className={`map-badge map-badge--${mode}`}>
             {modeLabel[mode]} route · {distanceLabel}
           </div>
         )}
       </div>
 
-      <MapMyLocationButton
-        onClick={handleLocateUser}
-        disabled={isLocating}
-      />
+      <MapNavigationControls map={map} />
+
+      {places.centerPopupOnScreen && places.activePopupPlace ? (
+        <PlaceMapPopupOverlay
+          place={places.activePopupPlace}
+          isAddedToRoute={places.isActivePopupAddedToRoute}
+          photoUrl={places.activePopupPhotoUrl}
+          photoLoading={places.activePopupPhotoLoading}
+          onAction={places.handlePlacePopupAction}
+        />
+      ) : null}
+
+      {showDesktopLocationButton ? (
+        <MapMyLocationButton
+          onClick={onLocateUser}
+          disabled={isLocating}
+        />
+      ) : null}
     </div>
   );
 }

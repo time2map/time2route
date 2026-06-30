@@ -1,10 +1,12 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import type { ExpandedSheetSnap } from '../utils/mobileRouteSheetSnap';
+import { isMobileSheetAtPeekSnap } from '../utils/mobileRouteSheetSnap';
 import type { SearchHistoryEntry } from '../utils/searchHistory';
 import { getSidebarViewModel } from '../utils/getSidebarViewModel';
 import type { ActivityMode, ElevationStats, InterestingPlace } from '../utils/types';
 import { DesktopRouteSection } from './DesktopRouteSection';
 import { MobileRouteSheet } from './MobileRouteSheet';
+import { MapMyLocationButton } from './MapMyLocationButton';
 import { RouteOverview } from './RouteOverview';
 import { RoutePanelContent } from './RoutePanelContent';
 import { RoutePlannerForm } from './RoutePlannerForm';
@@ -64,6 +66,8 @@ type SidebarProps = {
   toIsCurrentLocation?: boolean;
   greetingHighlightActive?: boolean;
   onDismissGreeting?: () => void;
+  onLocateUser?: () => void;
+  isLocating?: boolean;
 };
 
 export function Sidebar(props: Readonly<SidebarProps>) {
@@ -108,11 +112,20 @@ export function Sidebar(props: Readonly<SidebarProps>) {
     fromIsCurrentLocation = false,
     toIsCurrentLocation = false,
     greetingHighlightActive = false,
-    onDismissGreeting
+    onDismissGreeting,
+    onLocateUser,
+    isLocating = false
   } = props;
 
   const isMobile = useMediaQuery(MOBILE_MEDIA_QUERY);
   const werePlannerFieldsFilledRef = useRef(false);
+  const [plannerMiddleSnapHeightPx, setPlannerMiddleSnapHeightPx] = useState<number | undefined>(
+    undefined
+  );
+
+  const handleBuildButtonSnapHeightChange = useCallback((heightPx: number) => {
+    setPlannerMiddleSnapHeightPx(heightPx);
+  }, []);
 
   useEffect(() => {
     if (!isMobile || routeBuilt || selectedPlace) {
@@ -226,6 +239,7 @@ export function Sidebar(props: Readonly<SidebarProps>) {
       isMobileSheetExpanded={isMobileSheetExpanded}
       greetingHighlightActive={greetingHighlightActive}
       onDismissGreeting={onDismissGreeting}
+      onBuildButtonSnapHeightChange={handleBuildButtonSnapHeightChange}
     />
   );
 
@@ -238,12 +252,29 @@ export function Sidebar(props: Readonly<SidebarProps>) {
   );
 
   if (isMobile) {
+    const showSheetLocationButton = isMobileSheetAtPeekSnap(
+      isMobileSheetExpanded,
+      mobileSheetSnap,
+      Boolean(selectedPlace)
+    );
+
     return (
       <aside className={`sidebar${routeBuilt ? ' sidebar--route-built' : ''}`}>
         <MobileRouteSheet
           expanded={isMobileSheetExpanded || Boolean(selectedPlace)}
           expandedSnap={selectedPlace ? 'markerSelected' : mobileSheetSnap}
+          routeBuilt={routeBuilt}
+          middleSnapHeightPx={plannerMiddleSnapHeightPx}
           title={viewModel.sheetTitle}
+          locationButton={
+            showSheetLocationButton && onLocateUser ? (
+              <MapMyLocationButton
+                attachedToSheet
+                onClick={onLocateUser}
+                disabled={isLocating}
+              />
+            ) : null
+          }
           onExpandedChange={onMobileSheetExpandedChange}
           onSnapChange={onMobileSheetSnapChange}
           onReset={onReset}>

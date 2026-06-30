@@ -98,6 +98,36 @@ export function isMobileSheetFullyOpen(
   return expanded && snap === 'penultimate';
 }
 
+export function isMobileSheetAtPeekSnap(
+  isMobileSheetExpanded: boolean,
+  mobileSheetSnap: ExpandedSheetSnap,
+  hasSelectedPlace: boolean
+): boolean {
+  return isMobileSheetExpanded && mobileSheetSnap === 'peek' && !hasSelectedPlace;
+}
+
+export function getMobileSheetSnapPointsProp(
+  middleHeightPx: number | undefined,
+  routeBuilt: boolean
+): number[] {
+  const snapPoints = getSheetSnapPoints(routeBuilt, middleHeightPx);
+  const middle = clamp(
+    Math.round(middleHeightPx ?? snapPoints.middle),
+    snapPoints.min,
+    snapPoints.max
+  );
+
+  return [0, 0.22, middle, 1];
+}
+
+export function getPlannerMiddleSnapHeightPx(
+  measuredPx: number | undefined,
+  routeBuilt: boolean
+): number {
+  const snapPoints = getSheetSnapPoints(routeBuilt, measuredPx);
+  return clamp(Math.round(measuredPx ?? snapPoints.middle), snapPoints.min, snapPoints.max);
+}
+
 export type ExpandedSheetSnap =
   | 'intermediate'
   | 'middle'

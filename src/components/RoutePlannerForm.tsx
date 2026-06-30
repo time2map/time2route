@@ -14,6 +14,7 @@ import { SearchHistory } from './SearchHistory';
 import { SuggestedLocations } from './SuggestedLocations';
 import { GreetingCard } from './GreetingCard';
 import { MOBILE_SHEET_ANIMATION_MS } from './MobileRouteSheet';
+import { usePlannerBuildButtonSnapHeight } from '../hooks/usePlannerBuildButtonSnapHeight';
 import { LocationHint, resolveLocationHintState, resolveMobileLocationHintState } from './LocationHint';
 import type { SearchHistoryEntry } from '../utils/searchHistory';
 import { isMobileSheetFullyOpen, type ExpandedSheetSnap } from '../utils/mobileRouteSheetSnap';
@@ -62,6 +63,7 @@ type RoutePlannerFormProps = {
   toIsCurrentLocation?: boolean;
   greetingHighlightActive?: boolean;
   onDismissGreeting?: () => void;
+  onBuildButtonSnapHeightChange?: (heightPx: number) => void;
 };
 
 type ActiveDropdown = 'from' | 'to' | null;
@@ -107,7 +109,8 @@ export function RoutePlannerForm({
   fromIsCurrentLocation = false,
   toIsCurrentLocation = false,
   greetingHighlightActive = false,
-  onDismissGreeting
+  onDismissGreeting,
+  onBuildButtonSnapHeightChange
 }: Readonly<RoutePlannerFormProps>) {
   const isMobile = variant === 'mobile';
   const fromInputId = isMobile ? 'fromInputMob' : 'fromInput';
@@ -117,6 +120,8 @@ export function RoutePlannerForm({
   const fromInputRef = useRef<HTMLInputElement>(null);
   const toInputRef = useRef<HTMLInputElement>(null);
   const locationPickerRef = useRef<HTMLDivElement>(null);
+  const mobileFormRef = useRef<HTMLDivElement>(null);
+  const buildRouteButtonRef = useRef<HTMLButtonElement>(null);
   const [isGreetingHighlight, setIsGreetingHighlight] = useState(false);
   const [focusedField, setFocusedField] = useState<'from' | 'to' | null>(null);
   const [isSheetExpanding, setIsSheetExpanding] = useState(false);
@@ -124,6 +129,13 @@ export function RoutePlannerForm({
   const isMobileSheetOpen = isMobile && isMobileSheetFullyOpen(isMobileSheetExpanded, mobileSheetSnap);
   const mobileInputsLocked = isMobile && !isMobileSheetOpen;
   const mobilePlannerInteractive = !isMobile || (isMobileSheetOpen && !isSheetExpanding);
+
+  usePlannerBuildButtonSnapHeight(
+    isMobile && !routeBuilt,
+    mobileFormRef,
+    buildRouteButtonRef,
+    onBuildButtonSnapHeightChange
+  );
 
   const dismissGreetingIfActive = useCallback(() => {
     if (greetingHighlightActive) {
@@ -442,6 +454,7 @@ export function RoutePlannerForm({
       </div>
 
       <button
+        ref={buildRouteButtonRef}
         className="cta-btn"
         onClick={onBuildRoute}
         disabled={isBuildRouteDisabled}
@@ -457,6 +470,7 @@ export function RoutePlannerForm({
   if (isMobile) {
     return (
       <div
+        ref={mobileFormRef}
         className={`sidebar-mobile-form${isSheetExpanding ? ' is-sheet-expanding' : ''}`}
         onPointerDownCapture={handlePanelPointerDown}>
         {content}

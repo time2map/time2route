@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { ensureUserLocationMarker } from '../../components/mapComponents/ensureUserLocationMarker';
 import { useErrorToast } from '../../context/ErrorToastContext';
-import { getCurrentPosition } from '../../utils/resolveCurrentLocation';
+import { detectUserLocation, isApproximateUserLocation, type UserLocation } from '../../utils/detectUserLocation';
 
 type UseUserLocationParams = {
   mapRef: React.RefObject<google.maps.Map | null>;
@@ -9,6 +10,9 @@ type UseUserLocationParams = {
 };
 
 let hasAttemptedInitialLocate = false;
+
+const BROWSER_ZOOM = 16;
+const APPROXIMATE_ZOOM = 12;
 
 const getGeolocationErrorMessage = (error: GeolocationPositionError) => {
   switch (error.code) {
@@ -31,24 +35,10 @@ function locationErrorMessage(text: string) {
   );
 }
 
-function showUserOnMap(
-  map: google.maps.Map,
-  location: google.maps.LatLngLiteral,
-  markerRef: React.MutableRefObject<google.maps.Marker | null>
-) {
-  map.panTo(location);
-  map.setZoom(Math.max(map.getZoom() ?? 0, 16));
-
-  if (markerRef.current) {
-    markerRef.current.setPosition(location);
-    return;
-  }
-
-  markerRef.current = new google.maps.Marker({
-    map,
-    position: location,
-    title: 'My location'
-  });
+function panMapToUserLocation(map: google.maps.Map, userLocation: UserLocation) {
+  const zoom = isApproximateUserLocation(userLocation) ? APPROXIMATE_ZOOM : BROWSER_ZOOM;
+  map.panTo({ lat: userLocation.lat, lng: userLocation.lng });
+  map.setZoom(Math.max(map.getZoom() ?? 0, zoom));
 }
 
 export function useUserLocation({
@@ -57,36 +47,51 @@ export function useUserLocation({
   autoLocateOnLoad = false
 }: UseUserLocationParams) {
   const { showErrorToast } = useErrorToast();
-  const userLocationMarkerRef = useRef<google.maps.Marker | null>(null);
+  const userLocationMarkerRef = useRef<google.maps.marker.AdvancedMarkerElement | null>(null);
+  const isLocatingRef = useRef(false);
   const [isLocating, setIsLocating] = useState(false);
+  const [location, setLocation] = useState<UserLocation | null>(null);
+  const [error, setError] = useState<Error | null>(null);
+
+  const showUserOnMap = useCallback(
+    async (map: google.maps.Map, userLocation: UserLocation) => {
+      panMapToUserLocation(map, userLocation);
+      await ensureUserLocationMarker(map, userLocation, userLocationMarkerRef);
+    },
+    []
+  );
 
   const locateUser = useCallback(
-    async (options?: { silent?: boolean }) => {
+    async (options?: { silent?: boolean; allowGeoapifyFallback?: boolean }) => {
       const map = mapRef.current;
-      if (!map || isLocating) {
+      if (!map || isLocatingRef.current) {
         return false;
       }
 
+      isLocatingRef.current = true;
       setIsLocating(true);
+      setError(null);
 
       try {
-        const position = await getCurrentPosition();
-        const location = {
-          lat: position.coords.latitude,
-          lng: position.coords.longitude
-        };
-
-        showUserOnMap(map, location, userLocationMarkerRef);
+        const userLocation = await detectUserLocation({
+          allowGeoapifyFallback: options?.allowGeoapifyFallback ?? false
+        });
+        setLocation(userLocation);
+        await showUserOnMap(map, userLocation);
         return true;
-      } catch (error) {
+      } catch (locateError) {
         const message =
-          error instanceof GeolocationPositionError
-            ? getGeolocationErrorMessage(error)
-            : error instanceof Error
-              ? error.message
+          locateError instanceof GeolocationPositionError
+            ? getGeolocationErrorMessage(locateError)
+            : locateError instanceof Error
+              ? locateError.message
               : 'Unable to access current location.';
 
-        console.warn(message, error);
+        const nextError =
+          locateError instanceof Error ? locateError : new Error('Unable to access current location.');
+
+        console.warn(message, locateError);
+        setError(nextError);
 
         if (!options?.silent) {
           showErrorToast({
@@ -98,15 +103,29 @@ export function useUserLocation({
 
         return false;
       } finally {
+        isLocatingRef.current = false;
         setIsLocating(false);
       }
     },
-    [isLocating, mapRef, showErrorToast]
+    [mapRef, showErrorToast, showUserOnMap]
   );
 
   const handleLocateUser = useCallback(() => {
-    void locateUser({ silent: false });
+    void locateUser({ silent: false, allowGeoapifyFallback: true });
   }, [locateUser]);
+
+  useEffect(() => {
+    if (!isReady || !location) {
+      return;
+    }
+
+    const map = mapRef.current;
+    if (!map) {
+      return;
+    }
+
+    void ensureUserLocationMarker(map, location, userLocationMarkerRef);
+  }, [isReady, location, mapRef]);
 
   useEffect(() => {
     if (!autoLocateOnLoad || !isReady || hasAttemptedInitialLocate) {
@@ -114,8 +133,26 @@ export function useUserLocation({
     }
 
     hasAttemptedInitialLocate = true;
-    void locateUser({ silent: true });
+
+    let cancelled = false;
+
+    queueMicrotask(() => {
+      if (cancelled) {
+        return;
+      }
+
+      void locateUser({ silent: true, allowGeoapifyFallback: false });
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, [autoLocateOnLoad, isReady, locateUser]);
 
-  return { handleLocateUser, isLocating };
+  return {
+    handleLocateUser,
+    isLocating,
+    location,
+    error
+  };
 }

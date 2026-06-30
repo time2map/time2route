@@ -3,11 +3,16 @@ import { LocationIcon } from './icons/LocationIcon';
 type MapMyLocationButtonProps = {
   onClick: () => void;
   disabled?: boolean;
+  attachedToSheet?: boolean;
 };
 
-export function MapMyLocationButton({ onClick, disabled = false }: Readonly<MapMyLocationButtonProps>) {
+export function MapMyLocationButton({
+  onClick,
+  disabled = false,
+  attachedToSheet = false
+}: Readonly<MapMyLocationButtonProps>) {
   return (
-    <div className="map-float top-right">
+    <div className={attachedToSheet ? 'map-sheet-location-btn' : 'map-float top-right'}>
       <button
         className="map-float-btn"
         type="button"

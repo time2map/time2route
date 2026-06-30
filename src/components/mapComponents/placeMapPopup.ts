@@ -9,6 +9,7 @@ type PlaceMapPopupParams = {
   isAddedToRoute: boolean;
   photoUrl?: string;
   photoLoading?: boolean;
+  variant?: 'marker' | 'screen-centered';
   onAction: (action: PlaceMapPopupAction, place: InterestingPlace) => void;
 };
 
@@ -48,7 +49,8 @@ function renderDistanceMarkup(distanceLabel: string | null): string {
 }
 
 export function createPlaceMapPopup(params: PlaceMapPopupParams): HTMLDivElement {
-  const { place, isAddedToRoute, photoUrl, photoLoading, onAction } = params;
+  const { place, isAddedToRoute, photoUrl, photoLoading, variant = 'marker', onAction } = params;
+  const isScreenCentered = variant === 'screen-centered';
   const categoryMeta = resolvePlaceCategory(place);
   const distanceLabel = isAddedToRoute ? 'On route' : formatDistanceFromRoute(place.distanceToRouteM);
   const addStopClass = isAddedToRoute ? 'popup-addstop added' : 'popup-addstop';
@@ -56,7 +58,7 @@ export function createPlaceMapPopup(params: PlaceMapPopupParams): HTMLDivElement
   const thumbClassName = photoUrl ? 'popup-thumb popup-thumb--expandable' : 'popup-thumb';
 
   const popup = document.createElement('div');
-  popup.className = 'map-popup visible';
+  popup.className = `map-popup visible${isScreenCentered ? ' map-popup--screen-centered' : ''}`;
   popup.innerHTML = `
     <button type="button" class="popup-close" data-action="close" aria-label="Close">×</button>
     <div class="${thumbClassName}">${renderThumbContent({
@@ -74,10 +76,10 @@ export function createPlaceMapPopup(params: PlaceMapPopupParams): HTMLDivElement
       ${renderDistanceMarkup(distanceLabel)}
       <div class="popup-actions">
         <button type="button" class="${addStopClass}" data-action="add-stop">${addStopLabel}</button>
-        <button type="button" class="popup-gmaps" data-action="open-gmaps">Open in Google Maps</button>
+        <button type="button" class="popup-gmaps" data-action="open-gmaps">Google Maps</button>
       </div>
     </div>
-    <div class="popup-arrow" aria-hidden="true"></div>
+    ${isScreenCentered ? '' : '<div class="popup-arrow" aria-hidden="true"></div>'}
   `;
 
   popup.addEventListener('click', (event) => {

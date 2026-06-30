@@ -33,6 +33,7 @@
   }
 
   .sidebar-mobile-sheet {
+    position: relative;
     z-index: 20;
     width: 100%;
     max-width: 100%;
@@ -40,7 +41,7 @@
     pointer-events: auto;
     display: flex;
     flex-direction: column;
-    overflow: hidden;
+    overflow: visible;
     background: var(--surface);
     border-radius: 16px 16px 0 0;
     box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.5);
@@ -353,8 +354,8 @@
     height: 64px;
   }
 
-  .map-float.top-right {
-    bottom: 200px;
+  .map-nav-controls {
+    top: 42%;
     right: 10px;
   }
 
@@ -386,5 +387,51 @@
 
   .route-endpoint-popup {
     display: none;
+  }
+
+  .map-place-popup-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 12;
+    display: grid;
+    place-items: center;
+    padding: 20px 16px clamp(168px, 36vh, 300px);
+    pointer-events: none;
+  }
+
+  .map-place-popup-overlay__backdrop {
+    position: absolute;
+    inset: 0;
+    border: 0;
+    padding: 0;
+    margin: 0;
+    background: transparent;
+    cursor: default;
+    pointer-events: auto;
+  }
+
+  .map-place-popup-overlay__dialog {
+    position: relative;
+    z-index: 1;
+    width: min(100%, 320px);
+    pointer-events: none;
+  }
+
+  .map-place-popup-overlay__dialog .map-popup {
+    position: relative;
+    left: auto;
+    bottom: auto;
+    transform: none;
+    width: 100%;
+    pointer-events: auto;
+  }
+
+  .map-popup--screen-centered {
+    border-radius: 16px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55);
+  }
+
+  .map-popup--screen-centered .popup-thumb {
+    /* height: 140px; */
   }
 }

@@ -29,7 +29,12 @@ Create a `.env` file in the project root:
 
 ```env
 VITE_GOOGLE_MAPS_API_KEY=your_key
+VITE_GEOAPIFY_API_KEY=your_geoapify_key
+# Optional: disable Geoapify IP fallback during local development
+# VITE_GEOAPIFY_IP_ENABLED=false
 ```
+
+`VITE_GEOAPIFY_API_KEY` is used as a fallback when browser geolocation is unavailable (see [Geoapify IP Geolocation](https://www.geoapify.com/ip-geolocation-api)). Set `VITE_GEOAPIFY_IP_ENABLED=false` to skip Geoapify API calls while developing.
 
 Development server:
 

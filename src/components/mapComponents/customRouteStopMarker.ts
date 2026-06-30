@@ -10,6 +10,7 @@ export type CustomRouteStopPopupContext = {
   selectedPlace: string | null;
   hoveredPlaceId: string | null;
   routeStopsHintActive?: boolean;
+  centerPopupOnScreen?: boolean;
   placePhotos: Record<string, PlacePhotoState>;
   onPopupAction: (action: PlaceMapPopupAction, place: InterestingPlace) => void;
 };
@@ -72,15 +73,17 @@ export function createCustomRouteStopMarkerElement(
   element.appendChild(dot);
 
   if (showMapPopup) {
-    element.appendChild(
-      createPlaceMapPopup({
-        place,
-        isAddedToRoute: true,
-        photoUrl: photoState?.url,
-        photoLoading: photoState?.loading,
-        onAction: popupContext.onPopupAction
-      })
-    );
+    if (!popupContext.centerPopupOnScreen) {
+      element.appendChild(
+        createPlaceMapPopup({
+          place,
+          isAddedToRoute: true,
+          photoUrl: photoState?.url,
+          photoLoading: photoState?.loading,
+          onAction: popupContext.onPopupAction
+        })
+      );
+    }
   }
 
   return element;

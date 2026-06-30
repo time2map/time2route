@@ -5,8 +5,9 @@ import {
   type PlaceMarker,
   type PlaceMarkerPopupContext
 } from '../useMapPaneMarkers';
-import { usePlacePhotoCache, type PlacePhotoState } from '../usePlacePhotoCache';
+import { usePlacePhotoCache, type PlacePhotoState, getPlacePhotoViewState } from '../usePlacePhotoCache';
 import type { InterestingPlace, RouteIntermediatePoint } from '../../utils/types';
+import { isMobileViewport } from '../../utils/mobileRouteSheetSnap';
 import { usePlacePopupSync } from './usePlacePopupSync';
 
 type UsePlaceMarkersParams = {
@@ -72,14 +73,26 @@ export function usePlaceMarkers(params: UsePlaceMarkersParams) {
   });
 
   const placePhotoCache = usePlacePhotoCache(popup.placePopupId, popupPlaces, { maxWidthPx: 520 });
+  const centerPopupOnScreen = isMobileViewport();
+  const activePopupPlace = useMemo(
+    () =>
+      popup.placePopupId
+        ? popupPlaces.find((place) => place.id === popup.placePopupId) ?? null
+        : null,
+    [popup.placePopupId, popupPlaces]
+  );
+  const activePopupPhoto = activePopupPlace
+    ? getPlacePhotoViewState(placePhotoCache, activePopupPlace.id)
+    : undefined;
 
   const syncPlaceMarkerElements = useCallback(() => {
     const popupContext: PlaceMarkerPopupContext = {
       placePopupId: popup.placePopupId,
       selectedPlace,
-      hoveredPlaceId: popup.hoveredPlaceIdRef.current,
+      hoveredPlaceId,
       routeStopIds: new Set(intermediates.map((stop) => stop.id)),
       routeStopsHintActive,
+      centerPopupOnScreen,
       placePhotos: placePhotoCache,
       onPlaceMarkerClick: popup.handlePlaceMarkerClick,
       onPopupAction: popup.handlePlacePopupAction
@@ -94,26 +107,32 @@ export function usePlaceMarkers(params: UsePlaceMarkersParams) {
           onMarkerClick: popup.handlePlaceMarkerClick,
           onMarkerHover: popup.handlePlaceMarkerHover
         },
-        popup.hoveredPlaceIdRef.current
+        hoveredPlaceId
       );
     });
   }, [
     intermediates,
     mountPlaceMarkerElement,
     placePhotoCache,
-    popup,
+    popup.handlePlaceMarkerClick,
+    popup.handlePlaceMarkerHover,
+    popup.handlePlacePopupAction,
+    popup.placePopupId,
     resolvePlaceColor,
     routeStopsHintActive,
-    selectedPlace
+    selectedPlace,
+    centerPopupOnScreen,
+    hoveredPlaceId
   ]);
 
   const syncCustomRouteStopMarkerElements = useCallback(() => {
     const popupContext: PlaceMarkerPopupContext = {
       placePopupId: popup.placePopupId,
       selectedPlace,
-      hoveredPlaceId: popup.hoveredPlaceIdRef.current,
+      hoveredPlaceId,
       routeStopIds: new Set(intermediates.map((stop) => stop.id)),
       routeStopsHintActive,
+      centerPopupOnScreen,
       placePhotos: placePhotoCache,
       onPlaceMarkerClick: popup.handlePlaceMarkerClick,
       onPopupAction: popup.handlePlacePopupAction
@@ -129,9 +148,14 @@ export function usePlaceMarkers(params: UsePlaceMarkersParams) {
     intermediates,
     mountCustomRouteStopMarker,
     placePhotoCache,
-    popup,
+    popup.handlePlaceMarkerClick,
+    popup.handlePlaceMarkerHover,
+    popup.handlePlacePopupAction,
+    popup.placePopupId,
     routeStopsHintActive,
-    selectedPlace
+    selectedPlace,
+    centerPopupOnScreen,
+    hoveredPlaceId
   ]);
 
   const clearPlaceMarkers = useCallback(() => {
@@ -161,7 +185,6 @@ export function usePlaceMarkers(params: UsePlaceMarkersParams) {
   }, [placePhotoCache, popup.placePopupId, selectedPlace, syncCustomRouteStopMarkerElements]);
 
   useEffect(() => {
-    popup.placePopupIdRef.current = popup.placePopupId;
     syncPlaceMarkerElements();
     syncCustomRouteStopMarkerElements();
   }, [
@@ -178,11 +201,14 @@ export function usePlaceMarkers(params: UsePlaceMarkersParams) {
   }, [placePhotoCache]);
 
   const handlePlaceMarkerClickRef = useRef(popup.handlePlaceMarkerClick);
-  handlePlaceMarkerClickRef.current = popup.handlePlaceMarkerClick;
   const handlePlaceMarkerHoverRef = useRef(popup.handlePlaceMarkerHover);
-  handlePlaceMarkerHoverRef.current = popup.handlePlaceMarkerHover;
   const handlePlacePopupActionRef = useRef(popup.handlePlacePopupAction);
-  handlePlacePopupActionRef.current = popup.handlePlacePopupAction;
+
+  useEffect(() => {
+    handlePlaceMarkerClickRef.current = popup.handlePlaceMarkerClick;
+    handlePlaceMarkerHoverRef.current = popup.handlePlaceMarkerHover;
+    handlePlacePopupActionRef.current = popup.handlePlacePopupAction;
+  }, [popup.handlePlaceMarkerClick, popup.handlePlaceMarkerHover, popup.handlePlacePopupAction]);
 
   return {
     placeMarkersRef,
@@ -204,6 +230,13 @@ export function usePlaceMarkers(params: UsePlaceMarkersParams) {
     closePlacePopup: popup.closePlacePopup,
     handlePlaceMarkerClick: popup.handlePlaceMarkerClick,
     handlePlaceMarkerHover: popup.handlePlaceMarkerHover,
-    handlePlacePopupAction: popup.handlePlacePopupAction
+    handlePlacePopupAction: popup.handlePlacePopupAction,
+    centerPopupOnScreen,
+    activePopupPlace,
+    activePopupPhotoUrl: activePopupPhoto?.url,
+    activePopupPhotoLoading: activePopupPhoto?.loading,
+    isActivePopupAddedToRoute: activePopupPlace
+      ? intermediates.some((stop) => stop.id === activePopupPlace.id)
+      : false
   };
 }

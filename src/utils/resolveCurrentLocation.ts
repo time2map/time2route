@@ -1,29 +1,7 @@
-const locate = (options: PositionOptions) =>
-  new Promise<GeolocationPosition>((resolve, reject) => {
-    navigator.geolocation.getCurrentPosition(resolve, reject, options);
-  });
+import { detectUserLocation, isApproximateUserLocation } from './detectUserLocation';
+import { formatGeoapifyAddress } from './geoapifyLocation';
 
-export async function getCurrentPosition(): Promise<GeolocationPosition> {
-  if (!('geolocation' in navigator)) {
-    throw new Error('Geolocation is not supported in this browser.');
-  }
-
-  try {
-    return await locate({
-      enableHighAccuracy: false,
-      timeout: 15000,
-      maximumAge: 5 * 60 * 1000
-    });
-  } catch (firstError) {
-    console.warn('Default geolocation failed, retrying with high accuracy', firstError);
-
-    return locate({
-      enableHighAccuracy: true,
-      timeout: 20000,
-      maximumAge: 0
-    });
-  }
-}
+export { getBrowserGeolocationPosition as getCurrentPosition } from './detectUserLocation';
 
 export async function reverseGeocodeAddress(lat: number, lng: number): Promise<string> {
   const geocoder = new google.maps.Geocoder();
@@ -38,11 +16,19 @@ export async function reverseGeocodeAddress(lat: number, lng: number): Promise<s
 }
 
 export async function resolveCurrentLocationAddress() {
-  const position = await getCurrentPosition();
-  const lat = position.coords.latitude;
-  const lng = position.coords.longitude;
+  const userLocation = await detectUserLocation({ allowGeoapifyFallback: true });
+  const { lat, lng } = userLocation;
+
+  if (isApproximateUserLocation(userLocation)) {
+    const address = formatGeoapifyAddress(userLocation);
+    const name =
+      userLocation.city || userLocation.region || address.split(',')[0]?.trim() || address;
+
+    return { lat, lng, address, name, source: userLocation.source };
+  }
+
   const address = await reverseGeocodeAddress(lat, lng);
   const name = address.split(',')[0]?.trim() || address;
 
-  return { lat, lng, address, name };
+  return { lat, lng, address, name, source: userLocation.source };
 }
